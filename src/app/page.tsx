@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
@@ -9,7 +10,7 @@ import { Trash2, Edit, Eye, Music, PlusCircle, Search } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { collection, doc, addDoc, deleteDoc, updateDoc, query, orderBy, getDocs } from 'firebase/firestore';
+import { collection, doc, addDoc, deleteDoc, updateDoc, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase';
 import { AppHeader } from '@/components/app-header';
 
@@ -84,35 +85,35 @@ export default function LyricsManagerPage() {
   const router = useRouter();
   const fileInputRef = useRef(null);
   
-  // Fetch songs only once on component mount
+  // Effect for fetching songs from Firestore
   useEffect(() => {
-    const fetchSongs = async () => {
-      setIsLoading(true);
-      try {
-        const songsCollection = collection(firestore, 'songs');
-        const q = query(songsCollection, orderBy('name'));
-        const snapshot = await getDocs(q);
-        const updatedSongs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
-        setLyricsFiles(updatedSongs);
-      } catch (error) {
-        console.error("Error fetching songs:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    setIsLoading(true);
+    const songsCollection = collection(firestore, 'songs');
+    const q = query(songsCollection, orderBy('name'));
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const updatedSongs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
+      setLyricsFiles(updatedSongs);
+      setIsLoading(false);
+    }, (error) => {
+      console.error("Error fetching songs:", error);
+      setIsLoading(false);
+    });
 
-    fetchSongs();
-  }, []);
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, []); // Empty dependency array ensures this runs only once on mount
 
-  // Effect to handle selecting the first song on desktop, or when songs/view changes
+  // Effect for handling the selection logic
   useEffect(() => {
-    // If we're on desktop, there are songs, and no song is selected, select the first one.
-    if (!isMobile && lyricsFiles.length > 0 && !selectedSong) {
-      setSelectedSong(lyricsFiles[0]);
-    }
-    // If a song is selected, but it no longer exists in the list, deselect it.
+    // If a song is selected, but it no longer exists in the list (e.g., deleted), update the selection
     if (selectedSong && !lyricsFiles.find(s => s.id === selectedSong.id)) {
+        // If on desktop, select the first available song, otherwise clear selection on mobile
         setSelectedSong(isMobile ? null : lyricsFiles[0] || null);
+    } 
+    // If we are on desktop, have songs, but no song is selected, select the first one.
+    else if (!isMobile && lyricsFiles.length > 0 && !selectedSong) {
+      setSelectedSong(lyricsFiles[0]);
     }
   }, [lyricsFiles, isMobile, selectedSong]);
 
@@ -138,12 +139,7 @@ export default function LyricsManagerPage() {
           const existingSong = lyricsFiles.find(f => f.name === newFile.name);
           if (!existingSong) {
              await addSong(newFile);
-             // Refetch songs after adding a new one
-             const songsCollection = collection(firestore, 'songs');
-             const q = query(songsCollection, orderBy('name'));
-             const snapshot = await getDocs(q);
-             const updatedSongs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
-             setLyricsFiles(updatedSongs);
+             // No need to refetch, onSnapshot will handle it automatically
           }
         };
         reader.readAsText(file);
@@ -157,18 +153,15 @@ export default function LyricsManagerPage() {
 
   const handleDelete = async (songId) => {
     await deleteSong(songId);
-    setLyricsFiles(files => files.filter(f => f.id !== songId));
-    if (selectedSong?.id === songId) {
-      setSelectedSong(null);
-    }
+    // No need to manually filter, onSnapshot handles updating the list
   };
 
   const handleEditSave = async () => {
     if (!editingFile) return;
     await updateSong(editingFile.id, editingContent);
-    setLyricsFiles(files => files.map(f => f.id === editingFile.id ? {...f, content: editingContent} : f));
     setEditingFile(null);
     setEditingContent('');
+    // onSnapshot will update the content in the main view
   };
 
   const handleShowInNewPage = (songId) => {
