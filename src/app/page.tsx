@@ -8,7 +8,6 @@ import { useRouter } from 'next/navigation';
 import { Trash2, Edit, Eye, Music, PlusCircle, Search } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 
@@ -65,7 +64,7 @@ async function saveFiles(files) {
   }
 }
 
-function SidebarContent({ onFileSelect, fileInputRef, handleFileUpload, searchTerm, setSearchTerm, filteredSongs, selectedSong }) {
+export function SidebarContent({ onFileSelect, fileInputRef, handleFileUpload, searchTerm, setSearchTerm, filteredSongs, selectedSong }) {
     const router = useRouter();
     return (
         <div className="flex flex-col h-full bg-background">
@@ -122,10 +121,11 @@ export default function LyricsManagerPage() {
   const [editingFile, setEditingFile] = useState(null);
   const [editingContent, setEditingContent] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const isMobile = useIsMobile();
   const router = useRouter();
   const fileInputRef = useRef(null);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+
 
   useEffect(() => {
     getFiles().then(files => {
@@ -237,17 +237,7 @@ export default function LyricsManagerPage() {
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] bg-background">
-      {isMobile ? (
-        <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-          {/* SheetTrigger is now in AppHeader */}
-          <SheetContent side="left" className="p-0 w-[300px]">
-            <SheetHeader className="p-4 border-b">
-                <SheetTitle>Song List</SheetTitle>
-            </SheetHeader>
-            <SidebarContent {...sidebarProps} />
-          </SheetContent>
-        </Sheet>
-      ) : (
+      {!isMobile && (
         <aside className="w-1/3 min-w-[250px] max-w-[350px] border-r">
           <SidebarContent {...sidebarProps} />
         </aside>
