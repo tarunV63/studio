@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { useRouter } from 'next/navigation';
-import { Trash2, Edit, Eye, Upload, Music, PlusCircle } from 'lucide-react';
+import { Trash2, Edit, Eye, Music, PlusCircle, Search } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 
 const sampleSongs = [
   {
@@ -67,6 +68,7 @@ export default function LyricsManagerPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [editingFile, setEditingFile] = useState(null);
   const [editingContent, setEditingContent] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const router = useRouter();
   const fileInputRef = useRef(null);
 
@@ -157,6 +159,10 @@ export default function LyricsManagerPage() {
     setEditingFile(null);
     setEditingContent('');
   };
+  
+  const filteredSongs = lyricsFiles.filter(file =>
+    file.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   if (isLoading) {
     return <div className="p-4 text-center">Loading...</div>;
@@ -178,9 +184,21 @@ export default function LyricsManagerPage() {
             multiple
           />
         </div>
+        <div className="p-4 pt-0">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Search songs..."
+              className="pl-8 w-full"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </div>
         <nav className="flex flex-col p-4 pt-0 space-y-1">
-          {lyricsFiles.length > 0 ? (
-            lyricsFiles.map((file, index) => (
+          {filteredSongs.length > 0 ? (
+            filteredSongs.map((file, index) => (
               <Button
                 key={index}
                 variant={selectedSong?.name === file.name ? "secondary" : "ghost"}
@@ -191,7 +209,7 @@ export default function LyricsManagerPage() {
               </Button>
             ))
           ) : (
-            <p className="text-sm text-muted-foreground text-center p-4">No songs yet.</p>
+            <p className="text-sm text-muted-foreground text-center p-4">No songs found.</p>
           )}
         </nav>
       </aside>
@@ -213,7 +231,7 @@ export default function LyricsManagerPage() {
                     <Eye className="mr-2 h-4 w-4" /> Show
                   </Button>
                   
-                  <Dialog open={editingFile?.name === selectedSong.name} onOpenChange={(isOpen) => !isOpen && closeEditDialog()}>
+                  <Dialog open={!!editingFile && editingFile.name === selectedSong.name} onOpenChange={(isOpen) => !isOpen && closeEditDialog()}>
                     <DialogTrigger asChild>
                        <Button variant="outline" onClick={() => openEditDialog(selectedSong)}>
                           <Edit className="mr-2 h-4 w-4" /> Edit
@@ -231,7 +249,7 @@ export default function LyricsManagerPage() {
                       />
                       <DialogFooter>
                         <DialogClose asChild>
-                          <Button variant="outline" onClick={closeEditDialog}>Cancel</Button>
+                          <Button variant="outline">Cancel</Button>
                         </DialogClose>
                         <Button onClick={handleEditSave}>Save</Button>
                       </DialogFooter>
