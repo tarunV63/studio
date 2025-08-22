@@ -41,14 +41,17 @@ The lyrics manager is so much fun!`
 
 async function getFiles() {
   if (typeof window !== 'undefined') {
-    const files = localStorage.getItem('lyrics_files');
-    if (files) {
-      return JSON.parse(files);
-    } else {
-      // If no files in localStorage, use sample songs
-      saveFiles(sampleSongs);
-      return sampleSongs;
+    try {
+      const files = localStorage.getItem('lyrics_files');
+      if (files) {
+        return JSON.parse(files);
+      }
+    } catch (e) {
+      console.error("Could not parse lyrics_files from localStorage", e);
     }
+    // If no files in localStorage or parsing fails, use sample songs
+    saveFiles(sampleSongs);
+    return sampleSongs;
   }
   return [];
 }
@@ -86,7 +89,7 @@ export default function LyricsManagerPage() {
         const reader = new FileReader();
         reader.onload = (e) => {
           const content = e.target.result;
-          // Avoid adding duplicates
+          // Avoid adding duplicates by name
           if (!newFiles.some(f => f.name === file.name)) {
             newFiles.push({ name: file.name, content });
           }
@@ -131,6 +134,11 @@ export default function LyricsManagerPage() {
     setEditingContent(file.content);
   }
 
+  const closeEditDialog = () => {
+    setEditingFile(null);
+    setEditingContent('');
+  }
+
   if (isLoading) {
     return <div className="p-4 text-center">Loading...</div>;
   }
@@ -162,33 +170,29 @@ export default function LyricsManagerPage() {
                     <Button variant="ghost" size="icon" onClick={() => handleShow(file.name)} aria-label={`View ${file.name}`}>
                       <Eye className="h-5 w-5" />
                     </Button>
-                    <Dialog onOpenChange={(isOpen) => !isOpen && setEditingFile(null)}>
+                    <Dialog open={editingFile?.name === file.name} onOpenChange={(isOpen) => !isOpen && closeEditDialog()}>
                       <DialogTrigger asChild>
                          <Button variant="ghost" size="icon" onClick={() => openEditDialog(file)} aria-label={`Edit ${file.name}`}>
                           <Edit className="h-5 w-5" />
                         </Button>
                       </DialogTrigger>
-                       {editingFile && editingFile.name === file.name && (
-                         <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Edit {editingFile.name}</DialogTitle>
-                          </DialogHeader>
-                          <Textarea
-                            value={editingContent}
-                            onChange={(e) => setEditingContent(e.target.value)}
-                            rows={15}
-                            className="my-4"
-                          />
-                          <DialogFooter>
-                            <DialogClose asChild>
-                              <Button variant="outline">Cancel</Button>
-                            </DialogClose>
-                            <DialogClose asChild>
-                              <Button onClick={handleEditSave}>Save</Button>
-                            </DialogClose>
-                          </DialogFooter>
-                        </DialogContent>
-                       )}
+                       <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Edit {file.name}</DialogTitle>
+                        </DialogHeader>
+                        <Textarea
+                          value={editingContent}
+                          onChange={(e) => setEditingContent(e.target.value)}
+                          rows={15}
+                          className="my-4"
+                        />
+                        <DialogFooter>
+                          <DialogClose asChild>
+                            <Button variant="outline" onClick={closeEditDialog}>Cancel</Button>
+                          </DialogClose>
+                          <Button onClick={handleEditSave}>Save</Button>
+                        </DialogFooter>
+                      </DialogContent>
                     </Dialog>
                     <Button variant="ghost" size="icon" onClick={() => handleDelete(file.name)} className="text-destructive hover:text-destructive" aria-label={`Delete ${file.name}`}>
                       <Trash2 className="h-5 w-5" />
