@@ -12,44 +12,6 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { collection, onSnapshot, doc, addDoc, deleteDoc, updateDoc, query, orderBy, getDocs, writeBatch } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase';
 
-const DEMO_SONGS = [
-    {
-      name: 'Amazing Grace.txt',
-      content: `Amazing grace! How sweet the sound
-That saved a wretch like me!
-I once was lost, but now am found;
-Was blind, but now I see.`,
-    },
-    {
-      name: 'Twinkle Twinkle Little Star.txt',
-      content: `Twinkle, twinkle, little star,
-How I wonder what you are!
-Up above the world so high,
-Like a diamond in the sky.`,
-    },
-    {
-      name: 'Jingle Bells.txt',
-      content: `Dashing through the snow
-In a one-horse open sleigh
-O'er the fields we go
-Laughing all the way`,
-    },
-     {
-      name: 'Let It Be.txt',
-      content: `When I find myself in times of trouble, Mother Mary comes to me
-Speaking words of wisdom, let it be
-And in my hour of darkness she is standing right in front of me
-Speaking words of wisdom, let it be`,
-    },
-    {
-      name: 'Stairway to Heaven.txt',
-      content: `There's a lady who's sure all that glitters is gold
-And she's buying a stairway to heaven
-When she gets there she knows, if the stores are all closed
-With a word she can get what she came for`,
-    },
-];
-
 async function addSong(song) {
   await addDoc(collection(firestore, 'songs'), song);
 }
@@ -121,50 +83,34 @@ export default function LyricsManagerPage() {
   const router = useRouter();
   const fileInputRef = useRef(null);
   
-  // Ref to prevent seeding demo data multiple times
-  const seeded = useRef(false);
-
   useEffect(() => {
     const songsCollection = collection(firestore, 'songs');
     const q = query(songsCollection, orderBy('name'));
 
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
-      // Check if the collection is empty and we haven't seeded data yet
-      if (snapshot.empty && !seeded.current) {
-        seeded.current = true; // Mark as seeded to prevent re-adding
-        try {
-          const batch = writeBatch(firestore);
-          DEMO_SONGS.forEach(song => {
-            const docRef = doc(collection(firestore, "songs"));
-            batch.set(docRef, song);
-          });
-          await batch.commit();
-          // The onSnapshot listener will be triggered again automatically by the write
-        } catch (error) {
-            console.error("Error adding demo songs: ", error);
-             setIsLoading(false); // Stop loading on error
-        }
-        return; // Exit early, let the next snapshot handle the state update
-      }
-      
+    const unsubscribe = onSnapshot(q, (snapshot) => {
       const songs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setLyricsFiles(songs);
 
-      // Update selected song if it doesn't exist anymore or on first load
-      if (!selectedSong && songs.length > 0 && !isMobile) {
+      if (selectedSong) {
+        // If there's a selected song, check if it still exists in the new list
+        const stillExists = songs.some(s => s.id === selectedSong.id);
+        if (!stillExists) {
+          // If it doesn't exist anymore (e.g., deleted), select the first available song or null
+          setSelectedSong(songs.length > 0 ? songs[0] : null);
+        }
+      } else if (songs.length > 0 && !isMobile) {
+        // If no song is selected, and we are not on mobile, select the first one
         setSelectedSong(songs[0]);
-      } else if (selectedSong) {
-          const stillExists = songs.some(s => s.id === selectedSong.id);
-          if (!stillExists) {
-              setSelectedSong(songs.length > 0 ? songs[0] : null);
-          }
       }
-
+      
+      setIsLoading(false);
+    }, (error) => {
+      console.error("Error fetching songs:", error);
       setIsLoading(false);
     });
 
     return () => unsubscribe();
-  }, [isMobile, selectedSong]);
+  }, [isMobile]); // Dependency array simplified
 
 
   useEffect(() => {
