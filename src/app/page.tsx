@@ -1,92 +1,170 @@
-import { Plus } from 'lucide-react';
-import Image from 'next/image';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+'use client';
 
-export default function Home() {
-  const feedItems = [
-    {
-      id: 1,
-      user: 'AndroidDevs',
-      handle: '@androiddev',
-      time: '2h',
-      content: 'Just released a new guide on Jetpack Compose theming! Check it out for some cool tips on creating dynamic and beautiful UIs. #AndroidDev #Compose',
-      image: 'https://placehold.co/600x400.png',
-      imageHint: 'code abstract',
-    },
-    {
-      id: 2,
-      user: 'Material Design',
-      handle: '@materialdesign',
-      time: '5h',
-      content: 'Our latest icon set is now available. Perfect for giving your DroidStart app that authentic Android feel. ✨',
-      image: 'https://placehold.co/600x300.png',
-      imageHint: 'design patterns',
-    },
-    {
-      id: 3,
-      user: 'PWA Builders',
-      handle: '@pwa',
-      time: '1d',
-      content: "Don't forget to add a manifest.json and service worker to your web app to make it installable. It's a game-changer for user experience!",
-      image: 'https://placehold.co/600x450.png',
-      imageHint: 'mobile technology',
-    },
-     {
-      id: 4,
-      user: 'Next.js Team',
-      handle: '@nextjs',
-      time: '2d',
-      content: "Building for mobile? Next.js's App Router and PWA capabilities make it easier than ever to create fast, native-like experiences on the web.",
-      image: 'https://placehold.co/600x400.png',
-      imageHint: 'web development',
-    },
-  ];
+import { useState, useRef, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
+import { useRouter } from 'next/navigation';
+import { Trash2, Edit, Eye, Upload } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
+
+async function getFiles() {
+  if (typeof window !== 'undefined') {
+    const files = localStorage.getItem('lyrics_files');
+    return files ? JSON.parse(files) : [];
+  }
+  return [];
+}
+
+async function saveFiles(files) {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('lyrics_files', JSON.stringify(files));
+  }
+}
+
+export default function LyricsManagerPage() {
+  const [lyricsFiles, setLyricsFiles] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [editingFile, setEditingFile] = useState(null);
+  const [editingContent, setEditingContent] = useState('');
+  const router = useRouter();
+  const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    getFiles().then(files => {
+      setLyricsFiles(files);
+      setIsLoading(false);
+    });
+  }, []);
+
+  const handleFileUpload = (event) => {
+    const files = event.target.files;
+    if (!files) return;
+
+    const newFiles = [...lyricsFiles];
+    let processedCount = 0;
+
+    Array.from(files).forEach(file => {
+      if (file.type === 'text/plain') {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const content = e.target.result;
+          newFiles.push({ name: file.name, content });
+          processedCount++;
+          if (processedCount === files.length) {
+            setLyricsFiles(newFiles);
+            saveFiles(newFiles);
+          }
+        };
+        reader.readAsText(file);
+      }
+    });
+  };
+
+  const handleDelete = (fileName) => {
+    const updatedFiles = lyricsFiles.filter(file => file.name !== fileName);
+    setLyricsFiles(updatedFiles);
+    saveFiles(updatedFiles);
+  };
+
+  const handleEditSave = () => {
+    if (!editingFile) return;
+    const updatedFiles = lyricsFiles.map(file => 
+      file.name === editingFile.name ? { ...file, content: editingContent } : file
+    );
+    setLyricsFiles(updatedFiles);
+    saveFiles(updatedFiles);
+    setEditingFile(null);
+    setEditingContent('');
+  };
+
+  const handleShow = (fileName) => {
+    const file = lyricsFiles.find(f => f.name === fileName);
+    if (file && typeof window !== 'undefined') {
+      localStorage.setItem('current_lyrics', file.content);
+      router.push(`/lyrics/view`);
+    }
+  };
+  
+  const openEditDialog = (file) => {
+    setEditingFile(file);
+    setEditingContent(file.content);
+  }
+
+  if (isLoading) {
+    return <div className="p-4 text-center">Loading...</div>;
+  }
 
   return (
-    <div className="container mx-auto max-w-2xl p-4 space-y-4">
-      {feedItems.map((item) => (
-        <Card key={item.id} className="overflow-hidden shadow-sm">
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <Image
-                src={`https://placehold.co/40x40.png`}
-                alt="User avatar"
-                width={40}
-                height={40}
-                className="rounded-full"
-                data-ai-hint="user avatar"
-              />
-              <div>
-                <CardTitle className="text-base font-bold font-headline">{item.user}</CardTitle>
-                <CardDescription className="text-sm text-muted-foreground">{item.handle} · {item.time}</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <p className="mb-4 text-sm text-foreground/90">{item.content}</p>
-            {item.image && (
-              <div className="relative aspect-video w-full">
-                <Image
-                  src={item.image}
-                  alt="Post image"
-                  fill
-                  className="object-cover rounded-lg border"
-                  data-ai-hint={item.imageHint}
-                />
+    <div className="container mx-auto max-w-4xl p-4">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Lyrics Manager</CardTitle>
+          <Button onClick={() => fileInputRef.current?.click()}>
+            <Upload className="mr-2 h-4 w-4" /> Add Song(s)
+          </Button>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+            className="hidden"
+            accept=".txt"
+            multiple
+          />
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {lyricsFiles.length > 0 ? (
+              lyricsFiles.map((file, index) => (
+                <div key={index} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
+                  <span className="font-medium truncate pr-4">{file.name}</span>
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="icon" onClick={() => handleShow(file.name)} aria-label={`View ${file.name}`}>
+                      <Eye className="h-5 w-5" />
+                    </Button>
+                    <Dialog onOpenChange={(isOpen) => !isOpen && setEditingFile(null)}>
+                      <DialogTrigger asChild>
+                         <Button variant="ghost" size="icon" onClick={() => openEditDialog(file)} aria-label={`Edit ${file.name}`}>
+                          <Edit className="h-5 w-5" />
+                        </Button>
+                      </DialogTrigger>
+                       {editingFile && editingFile.name === file.name && (
+                         <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Edit {editingFile.name}</DialogTitle>
+                          </DialogHeader>
+                          <Textarea
+                            value={editingContent}
+                            onChange={(e) => setEditingContent(e.target.value)}
+                            rows={15}
+                            className="my-4"
+                          />
+                          <DialogFooter>
+                            <DialogClose asChild>
+                              <Button variant="outline">Cancel</Button>
+                            </DialogClose>
+                            <DialogClose asChild>
+                              <Button onClick={handleEditSave}>Save</Button>
+                            </DialogClose>
+                          </DialogFooter>
+                        </DialogContent>
+                       )}
+                    </Dialog>
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(file.name)} className="text-destructive hover:text-destructive" aria-label={`Delete ${file.name}`}>
+                      <Trash2 className="h-5 w-5" />
+                    </Button>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center text-muted-foreground py-8">
+                <p>No lyric files uploaded.</p>
+                <p>Click "Add Song(s)" to upload your .txt files.</p>
               </div>
             )}
-          </CardContent>
-        </Card>
-      ))}
-
-      <Button
-        size="icon"
-        className="fixed bottom-20 right-4 h-14 w-14 rounded-full shadow-lg bg-accent hover:bg-accent/90"
-        aria-label="Create new post"
-      >
-        <Plus className="h-7 w-7" />
-      </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
