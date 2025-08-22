@@ -1,2 +1,2 @@
-// Firebase integration has been removed for debugging purposes.
-// This file is intentionally left blank.
+// This file is intentionally left blank. 
+// The Firebase configuration will be injected automatically.

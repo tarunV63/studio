@@ -1,32 +1,59 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useRouter } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { ArrowLeft, Loader2 } from 'lucide-react';
+import { firestore } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 function LyricsView() {
   const [song, setSong] = useState(null);
   const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  useEffect(() => {
-    // Workaround to get data from the main page without a database
-    try {
-      const storedSong = sessionStorage.getItem('temp_song_view');
-      if (storedSong) {
-        setSong(JSON.parse(storedSong));
-        // Clean up session storage after use
-        sessionStorage.removeItem('temp_song_view');
-      } else {
-        setError('No song data found. Please navigate from the main page.');
+  const fetchSong = useCallback(async (id) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        if (!firestore) {
+            throw new Error("Firestore is not initialized.");
+        }
+        const songDoc = await getDoc(doc(firestore, 'songs', id));
+        if (songDoc.exists()) {
+          setSong({ id: songDoc.id, ...songDoc.data() });
+        } else {
+          setError('Song not found.');
+        }
+      } catch (err) {
+        console.error("Error fetching song:", err);
+        setError('Failed to load song.');
+      } finally {
+          setIsLoading(false);
       }
-    } catch (e) {
-      console.error("Error reading from session storage:", e);
-      setError("Failed to load song data.");
-    }
   }, []);
+  
+  useEffect(() => {
+    const songId = searchParams.get('id');
+    if (songId) {
+      fetchSong(songId);
+    } else {
+      setError('No song ID provided.');
+      setIsLoading(false);
+    }
+  }, [searchParams, fetchSong]);
+
+
+  if (isLoading) {
+    return (
+        <div className="flex h-screen items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+    );
+  }
 
   if (error) {
     return <div className="p-4 text-center text-destructive">{error}</div>;
@@ -47,7 +74,7 @@ function LyricsView() {
               {song.content}
             </pre>
           ) : (
-            <p className="text-muted-foreground">No lyrics to display. Please go back and select a song.</p>
+            <p className="text-muted-foreground">No lyrics to display.</p>
           )}
         </CardContent>
       </Card>

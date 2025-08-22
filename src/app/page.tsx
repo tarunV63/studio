@@ -1,22 +1,18 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { useRouter } from 'next/navigation';
-import { Trash2, Edit, Eye, Music, PlusCircle, Search } from 'lucide-react';
+import { Trash2, Edit, Eye, Music, PlusCircle, Search, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { AppHeader } from '@/components/app-header';
 import { useToast } from '@/hooks/use-toast';
-
-// Dummy data to start with
-const initialSongs = [
-  { id: '1', name: 'Sample Song 1', content: 'These are the lyrics for the first sample song.' },
-  { id: '2', name: 'Sample Song 2', content: 'Lyrics for the second song go here.' },
-];
+import { firestore } from '@/lib/firebase';
+import { collection, getDocs, addDoc, deleteDoc, doc, updateDoc, query, orderBy } from 'firebase/firestore';
 
 export function SidebarContent({ onFileSelect, fileInputRef, handleFileUpload, searchTerm, setSearchTerm, filteredSongs, selectedSong }) {
   return (
@@ -67,24 +63,52 @@ export function SidebarContent({ onFileSelect, fileInputRef, handleFileUpload, s
 }
 
 export default function LyricsManagerPage() {
-  const [lyricsFiles, setLyricsFiles] = useState(initialSongs);
+  const [lyricsFiles, setLyricsFiles] = useState([]);
   const [selectedSong, setSelectedSong] = useState(null);
   const [editingFile, setEditingFile] = useState(null);
   const [editingContent, setEditingContent] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   const isMobile = useIsMobile();
   const router = useRouter();
   const fileInputRef = useRef(null);
   const { toast } = useToast();
 
+  const fetchSongs = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      if (!firestore) {
+        throw new Error("Firestore is not initialized.");
+      }
+      const songsCollection = collection(firestore, 'songs');
+      const q = query(songsCollection, orderBy('name'));
+      const songSnapshot = await getDocs(q);
+      const songsList = songSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setLyricsFiles(songsList);
+    } catch (err) {
+      console.error("Error fetching songs:", err);
+      setError("Could not load songs. Please check your connection and Firestore setup.");
+      toast({
+        variant: "destructive",
+        title: "Loading Error",
+        description: "Could not load songs. Please try again later.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast]);
+  
   useEffect(() => {
-    // Select the first song on desktop when the component loads or songs change.
-    if (!isMobile && lyricsFiles.length > 0 && !selectedSong) {
+    fetchSongs();
+  }, [fetchSongs]);
+
+  useEffect(() => {
+    if (!selectedSong && !isMobile && lyricsFiles.length > 0) {
       setSelectedSong(lyricsFiles[0]);
     }
-    
-    // Deselect a song if it's deleted.
-    if (selectedSong && !lyricsFiles.find(s => s.id === selectedSong.id)) {
+     if (selectedSong && !lyricsFiles.find(s => s.id === selectedSong.id)) {
         setSelectedSong(isMobile ? null : lyricsFiles[0] || null);
     }
   }, [lyricsFiles, isMobile, selectedSong]);
@@ -97,35 +121,40 @@ export default function LyricsManagerPage() {
     }
   };
 
-  const handleFileUpload = (event) => {
+  const handleFileUpload = async (event) => {
     const files = event.target.files;
     if (!files) return;
 
-    Array.from(files).forEach(file => {
+    for (const file of Array.from(files)) {
       if (file.type === 'text/plain') {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const content = e.target.result;
-          const fileName = file.name.replace('.txt','');
-          
-          const existingSong = lyricsFiles.find(f => f.name === fileName);
-          if (!existingSong) {
-             const newFile = { id: Date.now().toString(), name: fileName, content: content as string };
-             setLyricsFiles(prevFiles => [...prevFiles, newFile].sort((a, b) => a.name.localeCompare(b.name)));
-          } else {
-            toast({
+        const content = await file.text();
+        const fileName = file.name.replace('.txt', '');
+
+        const existingSong = lyricsFiles.find(f => f.name === fileName);
+        if (!existingSong) {
+          try {
+            const songsCollection = collection(firestore, 'songs');
+            const newDocRef = await addDoc(songsCollection, { name: fileName, content: content });
+            const newFile = { id: newDocRef.id, name: fileName, content: content };
+            setLyricsFiles(prevFiles => [...prevFiles, newFile].sort((a, b) => a.name.localeCompare(b.name)));
+          } catch (err) {
+             toast({
                 variant: "destructive",
-                title: "Song Exists",
-                description: `A song named "${fileName}" already exists.`,
+                title: "Upload Error",
+                description: `Failed to upload song "${fileName}".`,
             });
           }
-        };
-        reader.readAsText(file);
+        } else {
+          toast({
+            variant: "destructive",
+            title: "Song Exists",
+            description: `A song named "${fileName}" already exists.`,
+          });
+        }
       }
-    });
-     // Reset file input to allow uploading the same file again
+    }
     if (fileInputRef.current) {
-        fileInputRef.current.value = "";
+      fileInputRef.current.value = "";
     }
   };
 
@@ -134,33 +163,47 @@ export default function LyricsManagerPage() {
   );
 
   const handleDelete = async (songId) => {
-    setLyricsFiles(prevFiles => prevFiles.filter(file => file.id !== songId));
+    try {
+      const songDoc = doc(firestore, 'songs', songId);
+      await deleteDoc(songDoc);
+      setLyricsFiles(prevFiles => prevFiles.filter(file => file.id !== songId));
+      toast({ title: "Success", description: "Song deleted successfully." });
+    } catch (err) {
+       toast({
+          variant: "destructive",
+          title: "Delete Error",
+          description: "Failed to delete the song.",
+       });
+    }
   };
 
   const handleEditSave = async () => {
     if (!editingFile) return;
-    setLyricsFiles(prevFiles => 
-        prevFiles.map(file => 
-            file.id === editingFile.id ? { ...file, content: editingContent } : file
+    try {
+      const songDoc = doc(firestore, 'songs', editingFile.id);
+      await updateDoc(songDoc, { content: editingContent });
+      setLyricsFiles(prevFiles =>
+        prevFiles.map(file =>
+          file.id === editingFile.id ? { ...file, content: editingContent } : file
         )
-    );
-    // Update the selected song view as well
-    if(selectedSong?.id === editingFile.id) {
-        setSelectedSong(prevSong => ({...prevSong, content: editingContent}));
+      );
+      if (selectedSong?.id === editingFile.id) {
+        setSelectedSong(prevSong => ({ ...prevSong, content: editingContent }));
+      }
+      setEditingFile(null);
+      setEditingContent('');
+      toast({ title: "Success", description: "Song updated successfully." });
+    } catch (err) {
+       toast({
+          variant: "destructive",
+          title: "Update Error",
+          description: "Failed to save changes.",
+       });
     }
-    setEditingFile(null);
-    setEditingContent('');
   };
-
-  const handleShowInNewPage = (songId) => {
-    // This will not work correctly without a database, as the view page cannot fetch data.
-    // We can pass data via query params for a temporary solution, but it's not ideal for large content.
-    const song = lyricsFiles.find(s => s.id === songId);
-    if (song) {
-        // Storing to session storage to pass to the next page as a workaround
-        sessionStorage.setItem('temp_song_view', JSON.stringify(song));
-        router.push(`/lyrics/view?id=${songId}`);
-    }
+  
+   const handleShowInNewPage = (songId) => {
+    router.push(`/lyrics/view?id=${songId}`);
   };
 
   const openEditDialog = (file) => {
@@ -182,6 +225,22 @@ export default function LyricsManagerPage() {
     filteredSongs,
     selectedSong
   };
+
+  if (isLoading) {
+    return (
+        <div className="flex h-screen items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+    );
+  }
+
+  if (error) {
+     return (
+        <div className="flex h-screen items-center justify-center text-center text-destructive">
+            <p>{error}</p>
+        </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen">
