@@ -52,7 +52,7 @@ export function SidebarContent({ onFileSelect, fileInputRef, handleFileUpload, s
           />
         </div>
       </div>
-      <nav className="flex flex-col p-4 pt-0 space-y-4 overflow-y-auto">
+      <nav className="flex flex-col p-4 pt-0 space-y-2 overflow-y-auto">
         {filteredSongs.length > 0 ? (
           filteredSongs.map((song) => (
             <Button
@@ -91,18 +91,24 @@ export default function LyricsManagerPage() {
       const songs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setLyricsFiles(songs);
 
-      if (selectedSong) {
-        // If there's a selected song, check if it still exists in the new list
-        const stillExists = songs.some(s => s.id === selectedSong.id);
-        if (!stillExists) {
-          // If it doesn't exist anymore (e.g., deleted), select the first available song or null
-          setSelectedSong(songs.length > 0 ? songs[0] : null);
+      // Logic to set selected song after fetch
+      setSelectedSong(prevSelected => {
+        // If a song was already selected, try to find it in the new list
+        if (prevSelected) {
+          const stillExists = songs.some(s => s.id === prevSelected.id);
+          if (stillExists) {
+            // If it still exists, keep it selected (update with new data if any)
+            return songs.find(s => s.id === prevSelected.id);
+          }
         }
-      } else if (songs.length > 0 && !isMobile) {
-        // If no song is selected, and we are not on mobile, select the first one
-        setSelectedSong(songs[0]);
-      }
-      
+        // If no song was selected, or the old one is gone, select the first one on desktop
+        if (!isMobile && songs.length > 0) {
+          return songs[0];
+        }
+        // Otherwise, no song is selected (or we are on mobile)
+        return null;
+      });
+
       setIsLoading(false);
     }, (error) => {
       console.error("Error fetching songs:", error);
@@ -110,7 +116,18 @@ export default function LyricsManagerPage() {
     });
 
     return () => unsubscribe();
-  }, [isMobile]); // Dependency array simplified
+  }, []); // Removed isMobile from dependency array
+
+  useEffect(() => {
+    // This effect handles selecting the first song on desktop when switching from mobile view
+    if (!isMobile && !selectedSong && lyricsFiles.length > 0) {
+      setSelectedSong(lyricsFiles[0]);
+    }
+    // This effect handles deselecting song when switching to mobile view
+    if (isMobile && selectedSong) {
+      setSelectedSong(null);
+    }
+  }, [isMobile, lyricsFiles, selectedSong]);
 
 
   useEffect(() => {
@@ -150,20 +167,30 @@ export default function LyricsManagerPage() {
   };
 
   const handleDelete = async (songId) => {
-    await deleteSong(songId);
+    // If the song to be deleted is currently selected
     if (selectedSong && selectedSong.id === songId) {
-       const remainingSongs = lyricsFiles.filter(s => s.id !== songId);
-       setSelectedSong(remainingSongs.length > 0 ? remainingSongs[0] : null);
+      // Find its index in the current list
+      const currentIndex = filteredSongs.findIndex(s => s.id === songId);
+      // If there are other songs
+      if (filteredSongs.length > 1) {
+        // Select the next song, or the previous one if it's the last in the list
+        const nextIndex = (currentIndex + 1) % filteredSongs.length;
+         setSelectedSong(filteredSongs[nextIndex]);
+      } else {
+        // If it's the only song, select null
+        setSelectedSong(null);
+      }
     }
+    await deleteSong(songId);
   };
 
   const handleEditSave = async () => {
     if (!editingFile) return;
     await updateSong(editingFile.id, editingContent);
     
-    if (selectedSong && selectedSong.id === editingFile.id) {
-      setSelectedSong({ ...selectedSong, content: editingContent });
-    }
+    // Update the content in the UI immediately after saving
+    setSelectedSong(prev => prev && prev.id === editingFile.id ? { ...prev, content: editingContent } : prev);
+    setLyricsFiles(prev => prev.map(f => f.id === editingFile.id ? { ...f, content: editingContent } : f));
 
     setEditingFile(null);
     setEditingContent('');
@@ -234,7 +261,7 @@ export default function LyricsManagerPage() {
                     </DialogTrigger>
                      <DialogContent>
                       <DialogHeader>
-                        <DialogTitle>Edit {selectedSong.name}</DialogTitle>
+                        <DialogTitle>Edit {editingFile?.name}</DialogTitle>
                       </DialogHeader>
                       <Textarea
                         value={editingContent}
