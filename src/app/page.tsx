@@ -62,6 +62,7 @@ async function getFiles() {
 async function saveFiles(files) {
   if (typeof window !== 'undefined') {
     localStorage.setItem('lyrics_files', JSON.stringify(files));
+    window.dispatchEvent(new Event('lyrics_updated'));
   }
 }
 
@@ -125,9 +126,7 @@ export default function LyricsManagerPage() {
   const isMobile = useIsMobile();
   const router = useRouter();
   const fileInputRef = useRef(null);
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
-
-
+  
   useEffect(() => {
     getFiles().then(files => {
       setLyricsFiles(files);
@@ -139,16 +138,18 @@ export default function LyricsManagerPage() {
   }, [isMobile]);
 
   useEffect(() => {
-    if (isMobile) {
-      setIsSheetOpen(true);
-    }
-  }, [isMobile]);
+    const handleSongSelected = (event) => {
+      setSelectedSong(event.detail);
+    };
+
+    window.addEventListener('song-selected', handleSongSelected);
+    return () => {
+      window.removeEventListener('song-selected', handleSongSelected);
+    };
+  }, []);
   
   const handleFileSelect = (file) => {
     setSelectedSong(file);
-    if(isMobile) {
-      setIsSheetOpen(false);
-    }
   };
 
   const handleFileUpload = (event) => {
@@ -244,19 +245,10 @@ export default function LyricsManagerPage() {
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] bg-background">
-      {!isMobile ? (
+      {!isMobile && (
         <aside className="w-1/3 min-w-[250px] max-w-[350px] border-r">
           <SidebarContent {...sidebarProps} />
         </aside>
-      ) : (
-        <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-          <SheetContent side="left" className="p-0 w-[300px]">
-            <SheetHeader className="p-4 border-b">
-                <SheetTitle>Song List</SheetTitle>
-            </SheetHeader>
-            <SidebarContent {...sidebarProps} />
-          </SheetContent>
-        </Sheet>
       )}
 
       <main className="flex-1 flex flex-col p-4">
@@ -313,6 +305,9 @@ export default function LyricsManagerPage() {
                 <Music className="h-16 w-16 text-muted-foreground/50" />
                 <h2 className="text-xl font-medium">Select a song to view</h2>
                 <p>Or add a new song to get started.</p>
+                 {isMobile && (
+                  <p className="text-sm mt-4">Click the menu icon above to open the song list.</p>
+                )}
             </div>
           </div>
         )}
@@ -320,5 +315,3 @@ export default function LyricsManagerPage() {
     </div>
   );
 }
-
-    

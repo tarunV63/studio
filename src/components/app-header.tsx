@@ -19,11 +19,11 @@ async function getFiles() {
     } catch (e) {
       console.error("Could not parse lyrics_files from localStorage", e);
     }
+    // Return empty array if nothing is in local storage, so sample songs are not re-added
     return []; 
   }
   return [];
 }
-
 
 export function AppHeader() {
   const isMobile = useIsMobile();
@@ -31,31 +31,24 @@ export function AppHeader() {
   
   // This state is just for the SidebarContent inside the sheet
   const [lyricsFiles, setLyricsFiles] = useState([]);
-  const [selectedSong, setSelectedSong] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const fileInputRef = useRef(null);
 
   useEffect(() => {
     // This effect ensures that the sidebar content is up-to-date
-    // if the header is used across different pages or re-renders.
     const updateFiles = () => {
       getFiles().then(setLyricsFiles);
     };
 
-    if (isMobile && isSheetOpen) {
-      updateFiles();
-    }
+    updateFiles(); // Initial load
     
     // Listen for file changes from the main page
     window.addEventListener('lyrics_updated', updateFiles);
     return () => {
       window.removeEventListener('lyrics_updated', updateFiles);
     }
+  }, []);
 
-  }, [isMobile, isSheetOpen]);
-
-  // This is a simplified handler for the sheet's sidebar.
-  // It uses a custom event to notify the main page.
   const handleFileSelect = (file) => {
     window.dispatchEvent(new CustomEvent('song-selected', { detail: file }));
     setIsSheetOpen(false); // Close sheet on selection
@@ -74,7 +67,6 @@ export function AppHeader() {
     filteredSongs,
     selectedSong: null // The header doesn't need to know the selected song
   };
-
 
   return (
     <header className="fixed top-0 left-0 right-0 z-30 flex items-center justify-between h-14 px-2 sm:px-4 bg-primary text-primary-foreground shadow-md">
@@ -106,5 +98,3 @@ export function AppHeader() {
     </header>
   );
 }
-
-    
