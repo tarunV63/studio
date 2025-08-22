@@ -14,26 +14,39 @@ import { firestore } from '@/lib/firebase';
 
 const DEMO_SONGS = [
     {
-      name: 'Demo Song 1.txt',
-      content: `This is the first demo song.
-Feel free to edit or delete it.
-
-You can add your own songs by clicking the "Add Song" button.`,
+      name: 'Amazing Grace.txt',
+      content: `Amazing grace! How sweet the sound
+That saved a wretch like me!
+I once was lost, but now am found;
+Was blind, but now I see.`,
     },
     {
-      name: 'Demo Song 2.txt',
-      content: `Here are the lyrics for the second song.
-It's just another example.
-
-The content is stored securely in Firebase Firestore.`,
+      name: 'Twinkle Twinkle Little Star.txt',
+      content: `Twinkle, twinkle, little star,
+How I wonder what you are!
+Up above the world so high,
+Like a diamond in the sky.`,
     },
     {
-      name: 'Demo Song 3.txt',
-      content: `Verse 1:
-This is the final demo song to show the functionality.
-
-Chorus:
-Everything is synced across your devices in real-time.`,
+      name: 'Jingle Bells.txt',
+      content: `Dashing through the snow
+In a one-horse open sleigh
+O'er the fields we go
+Laughing all the way`,
+    },
+     {
+      name: 'Let It Be.txt',
+      content: `When I find myself in times of trouble, Mother Mary comes to me
+Speaking words of wisdom, let it be
+And in my hour of darkness she is standing right in front of me
+Speaking words of wisdom, let it be`,
+    },
+    {
+      name: 'Stairway to Heaven.txt',
+      content: `There's a lady who's sure all that glitters is gold
+And she's buying a stairway to heaven
+When she gets there she knows, if the stores are all closed
+With a word she can get what she came for`,
     },
 ];
 
@@ -77,7 +90,7 @@ export function SidebarContent({ onFileSelect, fileInputRef, handleFileUpload, s
           />
         </div>
       </div>
-      <nav className="flex flex-col p-4 pt-0 space-y-2 overflow-y-auto">
+      <nav className="flex flex-col p-4 pt-0 space-y-4 overflow-y-auto">
         {filteredSongs.length > 0 ? (
           filteredSongs.map((song) => (
             <Button
@@ -107,15 +120,18 @@ export default function LyricsManagerPage() {
   const isMobile = useIsMobile();
   const router = useRouter();
   const fileInputRef = useRef(null);
+  
+  // Ref to prevent seeding demo data multiple times
+  const seeded = useRef(false);
 
   useEffect(() => {
     const songsCollection = collection(firestore, 'songs');
     const q = query(songsCollection, orderBy('name'));
-    
+
     const unsubscribe = onSnapshot(q, async (snapshot) => {
-        
-      if (snapshot.empty && isLoading) {
-        // If the collection is empty on first load, add demo songs
+      // Check if the collection is empty and we haven't seeded data yet
+      if (snapshot.empty && !seeded.current) {
+        seeded.current = true; // Mark as seeded to prevent re-adding
         try {
           const batch = writeBatch(firestore);
           DEMO_SONGS.forEach(song => {
@@ -123,24 +139,33 @@ export default function LyricsManagerPage() {
             batch.set(docRef, song);
           });
           await batch.commit();
+          // The onSnapshot listener will be triggered again automatically by the write
         } catch (error) {
             console.error("Error adding demo songs: ", error);
+             setIsLoading(false); // Stop loading on error
         }
+        return; // Exit early, let the next snapshot handle the state update
       }
-
+      
       const songs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setLyricsFiles(songs);
 
-      if (isLoading) {
-        if (songs.length > 0 && !isMobile) {
-          setSelectedSong(songs[0]);
-        }
-        setIsLoading(false);
+      // Update selected song if it doesn't exist anymore or on first load
+      if (!selectedSong && songs.length > 0 && !isMobile) {
+        setSelectedSong(songs[0]);
+      } else if (selectedSong) {
+          const stillExists = songs.some(s => s.id === selectedSong.id);
+          if (!stillExists) {
+              setSelectedSong(songs.length > 0 ? songs[0] : null);
+          }
       }
+
+      setIsLoading(false);
     });
 
     return () => unsubscribe();
-  }, [isLoading, isMobile]);
+  }, [isMobile, selectedSong]);
+
 
   useEffect(() => {
     const handleSongSelected = (event) => {
