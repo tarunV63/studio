@@ -5,9 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { useRouter } from 'next/navigation';
-import { Trash2, Edit, Eye, Music, PlusCircle, Search } from 'lucide-react';
+import { Trash2, Edit, Eye, Music, PlusCircle, Search, Menu } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { useIsMobile } from '@/hooks/use-mobile';
+
 
 const sampleSongs = [
   {
@@ -62,6 +65,56 @@ async function saveFiles(files) {
   }
 }
 
+function SidebarContent({ onFileSelect, fileInputRef, handleFileUpload, searchTerm, setSearchTerm, filteredSongs, selectedSong }) {
+    const router = useRouter();
+    return (
+        <div className="flex flex-col h-full bg-background">
+            <div className="p-4">
+                <Button onClick={() => fileInputRef.current?.click()} className="w-full">
+                    <PlusCircle className="mr-2 h-4 w-4" /> Add Song
+                </Button>
+                <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    accept=".txt"
+                    multiple
+                />
+            </div>
+            <div className="p-4 pt-0">
+                <div className="relative">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        type="search"
+                        placeholder="Search songs..."
+                        className="pl-8 w-full"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+            </div>
+            <nav className="flex flex-col p-4 pt-0 space-y-1 overflow-y-auto">
+                {filteredSongs.length > 0 ? (
+                    filteredSongs.map((file, index) => (
+                        <Button
+                            key={index}
+                            variant={selectedSong?.name === file.name ? "secondary" : "ghost"}
+                            className="justify-start truncate"
+                            onClick={() => onFileSelect(file)}
+                        >
+                            {file.name}
+                        </Button>
+                    ))
+                ) : (
+                    <p className="text-sm text-muted-foreground text-center p-4">No songs found.</p>
+                )}
+            </nav>
+        </div>
+    );
+}
+
+
 export default function LyricsManagerPage() {
   const [lyricsFiles, setLyricsFiles] = useState([]);
   const [selectedSong, setSelectedSong] = useState(null);
@@ -69,6 +122,8 @@ export default function LyricsManagerPage() {
   const [editingFile, setEditingFile] = useState(null);
   const [editingContent, setEditingContent] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const isMobile = useIsMobile();
   const router = useRouter();
   const fileInputRef = useRef(null);
 
@@ -84,6 +139,9 @@ export default function LyricsManagerPage() {
   
   const handleFileSelect = (file) => {
     setSelectedSong(file);
+    if(isMobile) {
+      setIsSheetOpen(false);
+    }
   };
 
   const handleFileUpload = (event) => {
@@ -98,7 +156,7 @@ export default function LyricsManagerPage() {
         const reader = new FileReader();
         reader.onload = (e) => {
           const content = e.target.result;
-          const newFile = { name: file.name, content };
+          const newFile = { name: file.name, content: content as string };
           if (!newFiles.some(f => f.name === file.name)) {
             newFiles.push(newFile);
           }
@@ -133,7 +191,6 @@ export default function LyricsManagerPage() {
     setLyricsFiles(updatedFiles);
     saveFiles(updatedFiles);
     
-    // Update selected song view if it was the one being edited
     if (selectedSong && selectedSong.name === editingFile.name) {
       setSelectedSong({ ...selectedSong, content: editingContent });
     }
@@ -163,6 +220,16 @@ export default function LyricsManagerPage() {
   const filteredSongs = lyricsFiles.filter(file =>
     file.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+  
+  const sidebarProps = {
+    onFileSelect: handleFileSelect,
+    fileInputRef,
+    handleFileUpload,
+    searchTerm,
+    setSearchTerm,
+    filteredSongs,
+    selectedSong
+  };
 
   if (isLoading) {
     return <div className="p-4 text-center">Loading...</div>;
@@ -170,49 +237,23 @@ export default function LyricsManagerPage() {
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] bg-background">
-      <aside className="w-1/3 min-w-[250px] max-w-[350px] border-r overflow-y-auto">
-        <div className="p-4">
-          <Button onClick={() => fileInputRef.current?.click()} className="w-full">
-            <PlusCircle className="mr-2 h-4 w-4" /> Add Song
-          </Button>
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileUpload}
-            className="hidden"
-            accept=".txt"
-            multiple
-          />
-        </div>
-        <div className="p-4 pt-0">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search songs..."
-              className="pl-8 w-full"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-        </div>
-        <nav className="flex flex-col p-4 pt-0 space-y-1">
-          {filteredSongs.length > 0 ? (
-            filteredSongs.map((file, index) => (
-              <Button
-                key={index}
-                variant={selectedSong?.name === file.name ? "secondary" : "ghost"}
-                className="justify-start truncate"
-                onClick={() => handleFileSelect(file)}
-              >
-                {file.name}
-              </Button>
-            ))
-          ) : (
-            <p className="text-sm text-muted-foreground text-center p-4">No songs found.</p>
-          )}
-        </nav>
-      </aside>
+      {isMobile ? (
+        <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+          <SheetTrigger asChild>
+             <Button variant="ghost" size="icon" className="absolute top-16 left-2 z-10 md:hidden">
+              <Menu className="h-6 w-6" />
+              <span className="sr-only">Open Song List</span>
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="p-0 w-[300px]">
+             <SidebarContent {...sidebarProps} />
+          </SheetContent>
+        </Sheet>
+      ) : (
+        <aside className="w-1/3 min-w-[250px] max-w-[350px] border-r">
+          <SidebarContent {...sidebarProps} />
+        </aside>
+      )}
 
       <main className="flex-1 flex flex-col p-4">
         {selectedSong ? (
