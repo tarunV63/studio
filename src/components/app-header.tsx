@@ -7,7 +7,8 @@ import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle } from '@/co
 import { SidebarContent } from '@/app/page';
 import { useState, useRef, useEffect } from 'react';
 
-// These functions are duplicated from page.tsx to avoid circular dependency
+// This function is duplicated from page.tsx to avoid complex state management.
+// A global state manager would be a better long-term solution.
 async function getFiles() {
   if (typeof window !== 'undefined') {
     try {
@@ -18,8 +19,6 @@ async function getFiles() {
     } catch (e) {
       console.error("Could not parse lyrics_files from localStorage", e);
     }
-    // If no files, we can't initialize with sample songs here as saveFiles is not available
-    // This component will show an empty list until the main page loads and saves samples.
     return []; 
   }
   return [];
@@ -30,7 +29,7 @@ export function AppHeader() {
   const isMobile = useIsMobile();
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   
-  // State and refs needed for SidebarContent
+  // This state is just for the SidebarContent inside the sheet
   const [lyricsFiles, setLyricsFiles] = useState([]);
   const [selectedSong, setSelectedSong] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -39,32 +38,27 @@ export function AppHeader() {
   useEffect(() => {
     // This effect ensures that the sidebar content is up-to-date
     // if the header is used across different pages or re-renders.
-    if (isMobile) {
-      getFiles().then(files => {
-        setLyricsFiles(files);
-        if (files.length > 0 && !selectedSong) {
-          setSelectedSong(files[0]);
-        }
-      });
+    const updateFiles = () => {
+      getFiles().then(setLyricsFiles);
+    };
+
+    if (isMobile && isSheetOpen) {
+      updateFiles();
     }
-  }, [isMobile, isSheetOpen, selectedSong]);
+    
+    // Listen for file changes from the main page
+    window.addEventListener('lyrics_updated', updateFiles);
+    return () => {
+      window.removeEventListener('lyrics_updated', updateFiles);
+    }
 
+  }, [isMobile, isSheetOpen]);
+
+  // This is a simplified handler for the sheet's sidebar.
+  // It uses a custom event to notify the main page.
   const handleFileSelect = (file) => {
-    setSelectedSong(file);
-    // This is tricky. We can't directly update the main page's state.
-    // A better solution would involve a global state manager (like Context or Zustand).
-    // For now, we rely on the main page re-reading localStorage or a refresh.
-    // A simple way to communicate is to close the sheet, which might trigger effects on the main page.
-    setIsSheetOpen(false);
-    // We could also use a custom event.
     window.dispatchEvent(new CustomEvent('song-selected', { detail: file }));
-  };
-
-  const handleFileUpload = (event) => {
-     // This logic is complex and relies on main page state.
-     // It's better to keep the upload button inside the main page
-     // or use a global state solution.
-     // For now, we will just trigger the click. The logic remains in page.tsx
+    setIsSheetOpen(false); // Close sheet on selection
   };
 
   const filteredSongs = lyricsFiles.filter(file =>
@@ -74,11 +68,11 @@ export function AppHeader() {
   const sidebarProps = {
     onFileSelect: handleFileSelect,
     fileInputRef,
-    handleFileUpload,
+    handleFileUpload: () => {}, // The main page handles upload logic
     searchTerm,
     setSearchTerm,
     filteredSongs,
-    selectedSong
+    selectedSong: null // The header doesn't need to know the selected song
   };
 
 
@@ -112,3 +106,5 @@ export function AppHeader() {
     </header>
   );
 }
+
+    

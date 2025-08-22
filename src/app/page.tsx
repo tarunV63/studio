@@ -9,6 +9,7 @@ import { Trash2, Edit, Eye, Music, PlusCircle, Search } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 
 
 const sampleSongs = [
@@ -130,12 +131,18 @@ export default function LyricsManagerPage() {
   useEffect(() => {
     getFiles().then(files => {
       setLyricsFiles(files);
-      if (files.length > 0) {
-        setSelectedSong(files[0]);
-      }
+       if (files.length > 0 && !isMobile) {
+         setSelectedSong(files[0]);
+       }
       setIsLoading(false);
     });
-  }, []);
+  }, [isMobile]);
+
+  useEffect(() => {
+    if (isMobile) {
+      setIsSheetOpen(true);
+    }
+  }, [isMobile]);
   
   const handleFileSelect = (file) => {
     setSelectedSong(file);
@@ -237,10 +244,19 @@ export default function LyricsManagerPage() {
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] bg-background">
-      {!isMobile && (
+      {!isMobile ? (
         <aside className="w-1/3 min-w-[250px] max-w-[350px] border-r">
           <SidebarContent {...sidebarProps} />
         </aside>
+      ) : (
+        <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+          <SheetContent side="left" className="p-0 w-[300px]">
+            <SheetHeader className="p-4 border-b">
+                <SheetTitle>Song List</SheetTitle>
+            </SheetHeader>
+            <SidebarContent {...sidebarProps} />
+          </SheetContent>
+        </Sheet>
       )}
 
       <main className="flex-1 flex flex-col p-4">
@@ -304,3 +320,5 @@ export default function LyricsManagerPage() {
     </div>
   );
 }
+
+    
