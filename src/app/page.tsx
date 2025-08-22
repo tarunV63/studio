@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
@@ -10,7 +9,7 @@ import { Trash2, Edit, Eye, Music, PlusCircle, Search } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { collection, doc, addDoc, deleteDoc, updateDoc, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, doc, addDoc, deleteDoc, updateDoc, query, orderBy, getDocs } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase';
 import { AppHeader } from '@/components/app-header';
 
@@ -84,39 +83,44 @@ export default function LyricsManagerPage() {
   const isMobile = useIsMobile();
   const router = useRouter();
   const fileInputRef = useRef(null);
-  
-  // Effect for fetching songs from Firestore. Runs only once on mount.
-  useEffect(() => {
-    setIsLoading(true);
-    const songsCollection = collection(firestore, 'songs');
-    const q = query(songsCollection, orderBy('name'));
-    
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const updatedSongs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
-      setLyricsFiles(updatedSongs);
-      setIsLoading(false);
-    }, (error) => {
-      console.error("Error fetching songs:", error);
-      setIsLoading(false); // Also stop loading on error
-    });
+  const [refetchTrigger, setRefetchTrigger] = useState(0); // State to trigger refetch
 
-    // Cleanup subscription on unmount
-    return () => unsubscribe();
-  }, []); // Empty dependency array ensures this runs only once
+  // Effect for fetching songs from Firestore.
+  useEffect(() => {
+    const fetchSongs = async () => {
+      setIsLoading(true);
+      try {
+        const songsCollection = collection(firestore, 'songs');
+        const q = query(songsCollection, orderBy('name'));
+        const querySnapshot = await getDocs(q);
+        const updatedSongs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
+        setLyricsFiles(updatedSongs);
+      } catch (error) {
+        console.error("Error fetching songs:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchSongs();
+  }, [refetchTrigger]); // Refetch when refetchTrigger changes
 
   // Effect for handling the selected song logic.
-  // Runs when the list of songs changes, or when switching between mobile/desktop.
   useEffect(() => {
-    // If a song was selected, but it no longer exists (e.g., deleted)
-    if (selectedSong && !lyricsFiles.find(s => s.id === selectedSong.id)) {
-      // On desktop, select the first available song. On mobile, clear selection.
-      setSelectedSong(isMobile ? null : lyricsFiles[0] || null);
-    } 
-    // If on desktop, we have songs, but nothing is selected, select the first one.
-    else if (!isMobile && lyricsFiles.length > 0 && !selectedSong) {
-      setSelectedSong(lyricsFiles[0]);
+    if (isLoading) return; // Don't run this logic while loading
+
+    const currentSongExists = selectedSong && lyricsFiles.some(s => s.id === selectedSong.id);
+
+    if (!currentSongExists) {
+        if (!isMobile && lyricsFiles.length > 0) {
+            setSelectedSong(lyricsFiles[0]);
+        } else {
+            setSelectedSong(null);
+        }
+    } else if (!isMobile && !selectedSong && lyricsFiles.length > 0) {
+        setSelectedSong(lyricsFiles[0]);
     }
-  }, [lyricsFiles, isMobile, selectedSong]);
+  }, [lyricsFiles, selectedSong, isMobile, isLoading]);
 
 
   const handleFileSelect = (file) => {
@@ -140,7 +144,7 @@ export default function LyricsManagerPage() {
           const existingSong = lyricsFiles.find(f => f.name === newFile.name);
           if (!existingSong) {
              await addSong(newFile);
-             // No need to refetch, onSnapshot will handle it automatically
+             setRefetchTrigger(prev => prev + 1); // Trigger a refetch
           }
         };
         reader.readAsText(file);
@@ -154,7 +158,7 @@ export default function LyricsManagerPage() {
 
   const handleDelete = async (songId) => {
     await deleteSong(songId);
-    // No need to manually filter, onSnapshot handles updating the list
+    setRefetchTrigger(prev => prev + 1); // Trigger a refetch
   };
 
   const handleEditSave = async () => {
@@ -162,7 +166,7 @@ export default function LyricsManagerPage() {
     await updateSong(editingFile.id, editingContent);
     setEditingFile(null);
     setEditingContent('');
-    // onSnapshot will update the content in the main view
+    setRefetchTrigger(prev => prev + 1); // Trigger a refetch
   };
 
   const handleShowInNewPage = (songId) => {
@@ -277,5 +281,3 @@ export default function LyricsManagerPage() {
       </div>
     );
 }
-
-    
