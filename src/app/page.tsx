@@ -12,6 +12,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { collection, doc, addDoc, deleteDoc, updateDoc, query, orderBy, getDocs } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase';
 import { AppHeader } from '@/components/app-header';
+import { useToast } from '@/hooks/use-toast';
+
 
 async function addSong(song) {
   await addDoc(collection(firestore, 'songs'), song);
@@ -84,6 +86,7 @@ export default function LyricsManagerPage() {
   const router = useRouter();
   const fileInputRef = useRef(null);
   const [refetchTrigger, setRefetchTrigger] = useState(0);
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetchSongs = async () => {
@@ -94,27 +97,37 @@ export default function LyricsManagerPage() {
         const querySnapshot = await getDocs(q);
         const updatedSongs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
         setLyricsFiles(updatedSongs);
+        if (updatedSongs.length > 0 && !isMobile) {
+          setSelectedSong(updatedSongs[0]);
+        }
       } catch (error) {
         console.error("Error fetching songs:", error);
+        toast({
+          variant: "destructive",
+          title: "Connection Error",
+          description: "Could not connect to Firestore. Please check your Firebase project settings and security rules.",
+        });
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchSongs();
-  }, [refetchTrigger]);
+  }, [refetchTrigger, isMobile, toast]);
+
 
   useEffect(() => {
-    if (isLoading) return;
-
+    // This effect handles selecting the first song when the list loads or view changes.
+    // It is separated to avoid re-fetching data from firestore.
     const currentSongExists = selectedSong && lyricsFiles.some(s => s.id === selectedSong.id);
-
-    if (!currentSongExists && !isMobile && lyricsFiles.length > 0) {
+    if (!isMobile && lyricsFiles.length > 0 && !currentSongExists) {
       setSelectedSong(lyricsFiles[0]);
-    } else if (!isMobile && !selectedSong && lyricsFiles.length > 0) {
+    } else if (selectedSong && isMobile) {
+      // Don't clear selection on mobile
+    } else if (!selectedSong && !isMobile && lyricsFiles.length > 0) {
       setSelectedSong(lyricsFiles[0]);
     }
-  }, [lyricsFiles, selectedSong, isMobile, isLoading]);
+  }, [lyricsFiles, selectedSong, isMobile]);
 
 
   const handleFileSelect = (file) => {
@@ -152,7 +165,10 @@ export default function LyricsManagerPage() {
 
   const handleDelete = async (songId) => {
     await deleteSong(songId);
-    setRefetchTrigger(prev => prev + 1);
+    setLyricsFiles(files => files.filter(f => f.id !== songId));
+    if (selectedSong?.id === songId) {
+        setSelectedSong(null);
+    }
   };
 
   const handleEditSave = async () => {
