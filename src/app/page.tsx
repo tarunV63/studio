@@ -5,10 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { useRouter } from 'next/navigation';
-import { Trash2, Edit, Eye, Music, PlusCircle, Search, Menu } from 'lucide-react';
+import { Trash2, Edit, Eye, Music, PlusCircle, Search } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 
@@ -239,12 +239,7 @@ export default function LyricsManagerPage() {
     <div className="flex h-[calc(100vh-3.5rem)] bg-background">
       {isMobile ? (
         <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-          <SheetTrigger asChild>
-             <Button variant="ghost" size="icon" className="absolute top-16 left-2 z-10 md:hidden">
-              <Menu className="h-6 w-6" />
-              <span className="sr-only">Open Song List</span>
-            </Button>
-          </SheetTrigger>
+          {/* SheetTrigger is now in AppHeader */}
           <SheetContent side="left" className="p-0 w-[300px]">
             <SheetHeader className="p-4 border-b">
                 <SheetTitle>Song List</SheetTitle>
