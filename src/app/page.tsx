@@ -14,7 +14,6 @@ import { firestore } from '@/lib/firebase';
 import { AppHeader } from '@/components/app-header';
 import { useToast } from '@/hooks/use-toast';
 
-
 async function addSong(song) {
   await addDoc(collection(firestore, 'songs'), song);
 }
@@ -97,6 +96,18 @@ export default function LyricsManagerPage() {
         const querySnapshot = await getDocs(q);
         const updatedSongs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
         setLyricsFiles(updatedSongs);
+        if (!isMobile && updatedSongs.length > 0) {
+            // If a song is already selected and it's still in the list, keep it.
+            // Otherwise, select the first song.
+            const currentSongStillExists = selectedSong && updatedSongs.some(s => s.id === selectedSong.id);
+            if (!currentSongStillExists) {
+               setSelectedSong(updatedSongs[0]);
+            }
+        } else if (isMobile) {
+            setSelectedSong(null); // On mobile, don't auto-select.
+        } else {
+            setSelectedSong(null); // No songs, so nothing to select.
+        }
       } catch (error) {
         console.error("Error fetching songs:", error);
         toast({
@@ -113,16 +124,14 @@ export default function LyricsManagerPage() {
   }, [refetchTrigger, toast]);
 
   useEffect(() => {
-    if (!isMobile && lyricsFiles.length > 0) {
-        // If a song is already selected and it's still in the list, do nothing.
-        const currentSongStillExists = selectedSong && lyricsFiles.some(s => s.id === selectedSong.id);
-        if (!currentSongStillExists) {
-           setSelectedSong(lyricsFiles[0]);
+    if (isMobile) {
+        setSelectedSong(null);
+    } else {
+        if (lyricsFiles.length > 0 && !selectedSong) {
+            setSelectedSong(lyricsFiles[0]);
         }
-    } else if (isMobile) {
-        // On mobile, don't auto-select a song, let the user tap from the sheet.
     }
-  }, [lyricsFiles, isMobile, selectedSong]);
+  }, [isMobile, lyricsFiles, selectedSong]);
 
 
   const handleFileSelect = (file) => {
@@ -147,11 +156,21 @@ export default function LyricsManagerPage() {
           if (!existingSong) {
              await addSong(newFile);
              setRefetchTrigger(prev => prev + 1);
+          } else {
+            toast({
+                variant: "destructive",
+                title: "Song Exists",
+                description: `A song named "${newFile.name}" already exists.`,
+            });
           }
         };
         reader.readAsText(file);
       }
     });
+     // Reset file input to allow uploading the same file again
+    if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+    }
   };
 
   const filteredSongs = lyricsFiles.filter(file =>
@@ -160,10 +179,7 @@ export default function LyricsManagerPage() {
 
   const handleDelete = async (songId) => {
     await deleteSong(songId);
-    setLyricsFiles(files => files.filter(f => f.id !== songId));
-    if (selectedSong?.id === songId) {
-        setSelectedSong(lyricsFiles.length > 1 ? lyricsFiles[0] : null);
-    }
+    setRefetchTrigger(prev => prev + 1);
   };
 
   const handleEditSave = async () => {
@@ -171,7 +187,7 @@ export default function LyricsManagerPage() {
     await updateSong(editingFile.id, editingContent);
     setEditingFile(null);
     setEditingContent('');
-    setRefetchTrigger(prev => prev + 1); // This will re-fetch and show updated content
+    setRefetchTrigger(prev => prev + 1);
   };
 
   const handleShowInNewPage = (songId) => {
@@ -197,11 +213,21 @@ export default function LyricsManagerPage() {
     filteredSongs,
     selectedSong
   };
+  
+  // Update selected song content if it was edited
+  useEffect(() => {
+    if (selectedSong) {
+        const updatedSelectedSong = lyricsFiles.find(s => s.id === selectedSong.id);
+        if (updatedSelectedSong) {
+            setSelectedSong(updatedSelectedSong);
+        }
+    }
+  }, [lyricsFiles, selectedSong]);
 
   if (isLoading) {
     return (
       <div className="flex flex-col h-screen">
-        <AppHeader songs={[]} onFileSelect={() => {}} fileInputRef={fileInputRef} handleFileUpload={() => {}} />
+        <AppHeader onFileSelect={() => {}} fileInputRef={fileInputRef} handleFileUpload={() => {}} songs={[]} />
         <div className="flex-1 flex items-center justify-center">
             <div className="p-4 text-center">Loading songs...</div>
         </div>
@@ -211,7 +237,7 @@ export default function LyricsManagerPage() {
 
   return (
     <div className="flex flex-col h-screen">
-      <AppHeader songs={lyricsFiles} onFileSelect={handleFileSelect} fileInputRef={fileInputRef} handleFileUpload={handleFileUpload} />
+      <AppHeader onFileSelect={handleFileSelect} fileInputRef={fileInputRef} handleFileUpload={handleFileUpload} songs={lyricsFiles} />
       <div className="flex flex-1 pt-14 h-[calc(100vh-3.5rem)] bg-background">
           {!isMobile && (
             <aside className="w-1/3 min-w-[250px] max-w-[350px] border-r">
@@ -286,3 +312,5 @@ export default function LyricsManagerPage() {
       </div>
     );
 }
+
+    
