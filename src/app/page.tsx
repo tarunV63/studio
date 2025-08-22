@@ -13,34 +13,42 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 
 
 const sampleSongs = [
-  {
-    name: "Sample Song 1.txt",
-    content: `(Verse 1)
-This is the first line of the first song.
-This is the second line, it's not very long.
-Here comes the chorus, get ready to sing.
-Oh, sample song, you mean everything.
-
-(Chorus)
-Sample, sample, oh so grand.
-The best example in the land.
-Easy to read, easy to see.
-A perfect sample for you and me.`
-  },
-  {
-    name: "Sample Song 2.txt",
-    content: `(Verse 1)
-Woke up this morning, the sky was blue.
-Another sample song, just for you.
-With simple rhymes and a steady beat.
-This lyrical content can't be beat.
-
-(Chorus)
-Oh, it's another sample, loud and clear.
-To show the feature we hold so dear.
-Upload your own, or edit this one.
-The lyrics manager is so much fun!`
-  }
+  { name: "Sample Song 1.txt", content: "Lyrics for Sample Song 1" },
+  { name: "Sample Song 2.txt", content: "Lyrics for Sample Song 2" },
+  { name: "aa pavitra aatma ab aa.txt", content: "Lyrics for aa pavitra aatma ab aa" },
+  { name: "aa pavitra aatma tu aa hamare bich me.txt", content: "Lyrics for aa pavitra aatma tu aa hamare bich me" },
+  { name: "aadar ke yogya vo hai mahima ke yogya wo hai.txt", content: "Lyrics for aadar ke yogya vo hai mahima ke yogya wo hai" },
+  { name: "aadi aur anant tu hi hai.txt", content: "Lyrics for aadi aur anant tu hi hai" },
+  { name: "aa raha hai aa raha hai.txt", content: "Lyrics for aa raha hai aa raha hai" },
+  { name: "aag jala mujh mai aag jala.txt", content: "Lyrics for aag jala mujh mai aag jala" },
+  { name: "aage aage yeshu chala.txt", content: "Lyrics for aage aage yeshu chala" },
+  { name: "aai pharishton ki mithi aavaj.txt", content: "Lyrics for aai pharishton ki mithi aavaj" },
+  { name: "aai thi main pani bharne.txt", content: "Lyrics for aai thi main pani bharne" },
+  { name: "aaj fasin majhdar mein nayya.txt", content: "Lyrics for aaj fasin majhdar mein nayya" },
+  { name: "aaj ka din yahova ne banaya hai ham usme.txt", content: "Lyrics for aaj ka din yahova ne banaya hai ham usme" },
+  { name: "aaj ka ye din yahova ne banaya hai to aao milka.txt", content: "Lyrics for aaj ka ye din yahova ne banaya hai to aao milka" },
+  { name: "aaj mere dil mai khushi hai.txt", content: "Lyrics for aaj mere dil mai khushi hai" },
+  { name: "aaj nai zindagi ka aagaj huaa.txt", content: "Lyrics for aaj nai zindagi ka aagaj huaa" },
+  { name: "aaj tumhare liye uddharakarta.txt", content: "Lyrics for aaj tumhare liye uddharakarta" },
+  { name: "aaja ki tujko yeshu.txt", content: "Lyrics for aaja ki tujko yeshu" },
+  { name: "aakash aur dharti.txt", content: "Lyrics for aakash aur dharti" },
+  { name: "aake dekho sare logo.txt", content: "Lyrics for aake dekho sare logo" },
+  { name: "aaj yeshu zinda hai ham btane aae hai.txt", content: "Lyrics for aaj yeshu zinda hai ham btane aae hai" },
+  { name: "aaja use tu chak le.txt", content: "Lyrics for aaja use tu chak le" },
+  { name: "aanand hai param aanand hai.txt", content: "Lyrics for aanand hai param aanand hai" },
+  { name: "aanand aanand aanand hai.txt", content: "Lyrics for aanand aanand aanand hai" },
+  { name: "aakhri narsinga funka jane wala hai.txt", content: "Lyrics for aakhri narsinga funka jane wala hai" },
+  { name: "aanand ki avaj prabhu.txt", content: "Lyrics for aanand ki avaj prabhu" },
+  { name: "aanand hi aanand hai.txt", content: "Lyrics for aanand hi aanand hai" },
+  { name: "aanandit raho prabhu me.txt", content: "Lyrics for aanandit raho prabhu me" },
+  { name: "aankhe hamari kholiye prabhu ji.txt", content: "Lyrics for aankhe hamari kholiye prabhu ji" },
+  { name: "aankho mein mere sapano mein.txt", content: "Lyrics for aankho mein mere sapano mein" },
+  { name: "aane wala hai masiha.txt", content: "Lyrics for aane wala hai masiha" },
+  { name: "aao abdi baap se.txt", content: "Lyrics for aao abdi baap se" },
+  { name: "aao aanand manaye.txt", content: "Lyrics for aao aanand manaye" },
+  { name: "aao chale ham sajda.txt", content: "Lyrics for aao chale ham sajda" },
+  { name: "aao ham yahova ka.txt", content: "Lyrics for aao ham yahova ka" },
+  { name: "aao avasar yahi hai.txt", content: "Lyrics for aao avasar yahi hai" },
 ];
 
 async function getFiles() {
@@ -95,7 +103,7 @@ export function SidebarContent({ onFileSelect, fileInputRef, handleFileUpload, s
                     />
                 </div>
             </div>
-            <nav className="flex flex-col p-4 pt-0 space-y-1 overflow-y-auto">
+            <nav className="flex flex-col p-4 pt-0 space-y-2 overflow-y-auto">
                 {filteredSongs.length > 0 ? (
                     filteredSongs.map((file, index) => (
                         <Button
