@@ -3,16 +3,12 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useRouter } from 'next/navigation';
 import { Trash2, Edit, Eye, Upload } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 
-// This is a mock function. In a real app, you'd have server-side logic
-// to handle file operations.
 async function getFiles() {
-  // Check if we are in a browser environment
   if (typeof window !== 'undefined') {
     const files = localStorage.getItem('lyrics_files');
     return files ? JSON.parse(files) : [];
@@ -72,6 +68,7 @@ export default function LyricsManagerPage() {
   };
 
   const handleEditSave = () => {
+    if (!editingFile) return;
     const updatedFiles = lyricsFiles.map(file => 
       file.name === editingFile.name ? { ...file, content: editingContent } : file
     );
@@ -88,9 +85,14 @@ export default function LyricsManagerPage() {
       router.push(`/lyrics/view`);
     }
   };
+  
+  const openEditDialog = (file) => {
+    setEditingFile(file);
+    setEditingContent(file.content);
+  }
 
   if (isLoading) {
-    return <div className="p-4">Loading...</div>;
+    return <div className="p-4 text-center">Loading...</div>;
   }
 
   return (
@@ -117,15 +119,12 @@ export default function LyricsManagerPage() {
                 <div key={index} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
                   <span className="font-medium truncate pr-4">{file.name}</span>
                   <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="icon" onClick={() => handleShow(file.name)}>
+                    <Button variant="ghost" size="icon" onClick={() => handleShow(file.name)} aria-label={`View ${file.name}`}>
                       <Eye className="h-5 w-5" />
                     </Button>
-                     <Dialog>
+                    <Dialog onOpenChange={(isOpen) => !isOpen && setEditingFile(null)}>
                       <DialogTrigger asChild>
-                         <Button variant="ghost" size="icon" onClick={() => {
-                            setEditingFile(file);
-                            setEditingContent(file.content);
-                          }}>
+                         <Button variant="ghost" size="icon" onClick={() => openEditDialog(file)} aria-label={`Edit ${file.name}`}>
                           <Edit className="h-5 w-5" />
                         </Button>
                       </DialogTrigger>
@@ -142,7 +141,7 @@ export default function LyricsManagerPage() {
                           />
                           <DialogFooter>
                             <DialogClose asChild>
-                              <Button variant="outline" onClick={() => setEditingFile(null)}>Cancel</Button>
+                              <Button variant="outline">Cancel</Button>
                             </DialogClose>
                             <DialogClose asChild>
                               <Button onClick={handleEditSave}>Save</Button>
@@ -151,7 +150,7 @@ export default function LyricsManagerPage() {
                         </DialogContent>
                        )}
                     </Dialog>
-                    <Button variant="ghost" size="icon" onClick={() => handleDelete(file.name)} className="text-destructive hover:text-destructive">
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(file.name)} className="text-destructive hover:text-destructive" aria-label={`Delete ${file.name}`}>
                       <Trash2 className="h-5 w-5" />
                     </Button>
                   </div>

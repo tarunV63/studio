@@ -12,7 +12,6 @@ export default function ViewLyricsPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Check if we are in a browser environment
     if (typeof window !== 'undefined') {
       const storedLyrics = localStorage.getItem('current_lyrics');
       if (storedLyrics) {
@@ -37,7 +36,7 @@ export default function ViewLyricsPage() {
         </CardHeader>
         <CardContent>
           {lyrics ? (
-            <pre className="whitespace-pre-wrap font-body text-base">
+            <pre className="whitespace-pre-wrap font-body text-base leading-relaxed">
               {lyrics}
             </pre>
           ) : (
