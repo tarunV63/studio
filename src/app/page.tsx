@@ -83,6 +83,7 @@ export default function LyricsManagerPage() {
   const isMobile = useIsMobile();
   const router = useRouter();
   const fileInputRef = useRef(null);
+  const isInitialLoad = useRef(true);
   
   useEffect(() => {
     const songsCollection = collection(firestore, 'songs');
@@ -92,19 +93,19 @@ export default function LyricsManagerPage() {
       const updatedSongs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
       setLyricsFiles(updatedSongs);
 
-      setSelectedSong(prevSelected => {
-        const stillExists = updatedSongs.find(s => s.id === prevSelected?.id);
-        if (stillExists) {
-          // If the selected song still exists, update its content in case it changed
-          return stillExists;
+      if (isInitialLoad.current) {
+         if (window.innerWidth >= 768 && updatedSongs.length > 0) {
+            setSelectedSong(updatedSongs[0]);
         }
-        // If not on mobile and there are songs, select the first one.
-        if (window.innerWidth >= 768 && updatedSongs.length > 0) {
-            return updatedSongs[0];
-        }
-        return null; // Otherwise no selection
-      });
+        isInitialLoad.current = false;
+      }
       
+      setSelectedSong(prevSelected => {
+        if (!prevSelected) return null;
+        const stillExists = updatedSongs.find(s => s.id === prevSelected.id);
+        return stillExists ? stillExists : null;
+      });
+
       setIsLoading(false);
     }, (error) => {
       console.error("Error with snapshot listener:", error);
@@ -112,11 +113,13 @@ export default function LyricsManagerPage() {
     });
 
     return () => unsubscribe();
-  }, []); // Empty dependency array ensures this runs only once
+  }, []);
 
   const handleFileSelect = (file) => {
     setSelectedSong(file);
-    window.dispatchEvent(new CustomEvent('song-selected-mobile'));
+    if (isMobile) {
+      window.dispatchEvent(new CustomEvent('song-selected-mobile'));
+    }
   };
 
   const handleFileUpload = (event) => {
@@ -264,7 +267,7 @@ export default function LyricsManagerPage() {
                     <Music className="h-16 w-16 text-muted-foreground/50" />
                     <h2 className="text-xl font-medium">{lyricsFiles.length > 0 ? "Select a song" : "No songs found"}</h2>
                     <p>{lyricsFiles.length > 0 ? "Choose a song from the list to see its lyrics." : "Add a new song to get started."}</p>
-                     {isMobile && (
+                     {isMobile && !lyricsFiles.length && (
                        <Button onClick={() => fileInputRef.current?.click()} className="mt-4">
                           <PlusCircle className="mr-2 h-4 w-4" /> Add Song
                        </Button>
