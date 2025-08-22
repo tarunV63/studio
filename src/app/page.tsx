@@ -2,10 +2,10 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { useRouter } from 'next/navigation';
-import { Trash2, Edit, Eye, Upload } from 'lucide-react';
+import { Trash2, Edit, Eye, Upload, Music, PlusCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 
 const sampleSongs = [
@@ -49,7 +49,6 @@ async function getFiles() {
     } catch (e) {
       console.error("Could not parse lyrics_files from localStorage", e);
     }
-    // If no files in localStorage or parsing fails, use sample songs
     saveFiles(sampleSongs);
     return sampleSongs;
   }
@@ -64,6 +63,7 @@ async function saveFiles(files) {
 
 export default function LyricsManagerPage() {
   const [lyricsFiles, setLyricsFiles] = useState([]);
+  const [selectedSong, setSelectedSong] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [editingFile, setEditingFile] = useState(null);
   const [editingContent, setEditingContent] = useState('');
@@ -73,9 +73,16 @@ export default function LyricsManagerPage() {
   useEffect(() => {
     getFiles().then(files => {
       setLyricsFiles(files);
+      if (files.length > 0) {
+        setSelectedSong(files[0]);
+      }
       setIsLoading(false);
     });
   }, []);
+  
+  const handleFileSelect = (file) => {
+    setSelectedSong(file);
+  };
 
   const handleFileUpload = (event) => {
     const files = event.target.files;
@@ -89,14 +96,17 @@ export default function LyricsManagerPage() {
         const reader = new FileReader();
         reader.onload = (e) => {
           const content = e.target.result;
-          // Avoid adding duplicates by name
+          const newFile = { name: file.name, content };
           if (!newFiles.some(f => f.name === file.name)) {
-            newFiles.push({ name: file.name, content });
+            newFiles.push(newFile);
           }
           processedCount++;
           if (processedCount === files.length) {
             setLyricsFiles(newFiles);
             saveFiles(newFiles);
+            if (!selectedSong) {
+              setSelectedSong(newFile);
+            }
           }
         };
         reader.readAsText(file);
@@ -108,48 +118,56 @@ export default function LyricsManagerPage() {
     const updatedFiles = lyricsFiles.filter(file => file.name !== fileName);
     setLyricsFiles(updatedFiles);
     saveFiles(updatedFiles);
+    if (selectedSong && selectedSong.name === fileName) {
+      setSelectedSong(updatedFiles.length > 0 ? updatedFiles[0] : null);
+    }
   };
 
   const handleEditSave = () => {
     if (!editingFile) return;
-    const updatedFiles = lyricsFiles.map(file => 
+    const updatedFiles = lyricsFiles.map(file =>
       file.name === editingFile.name ? { ...file, content: editingContent } : file
     );
     setLyricsFiles(updatedFiles);
     saveFiles(updatedFiles);
+    
+    // Update selected song view if it was the one being edited
+    if (selectedSong && selectedSong.name === editingFile.name) {
+      setSelectedSong({ ...selectedSong, content: editingContent });
+    }
+
     setEditingFile(null);
     setEditingContent('');
   };
 
-  const handleShow = (fileName) => {
+  const handleShowInNewPage = (fileName) => {
     const file = lyricsFiles.find(f => f.name === fileName);
     if (file && typeof window !== 'undefined') {
       localStorage.setItem('current_lyrics', file.content);
       router.push(`/lyrics/view`);
     }
   };
-  
+
   const openEditDialog = (file) => {
     setEditingFile(file);
     setEditingContent(file.content);
-  }
+  };
 
   const closeEditDialog = () => {
     setEditingFile(null);
     setEditingContent('');
-  }
+  };
 
   if (isLoading) {
     return <div className="p-4 text-center">Loading...</div>;
   }
 
   return (
-    <div className="container mx-auto max-w-4xl p-4">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Lyrics Manager</CardTitle>
-          <Button onClick={() => fileInputRef.current?.click()}>
-            <Upload className="mr-2 h-4 w-4" /> Add Song(s)
+    <div className="flex h-[calc(100vh-3.5rem)] bg-background">
+      <aside className="w-1/3 min-w-[250px] max-w-[350px] border-r overflow-y-auto">
+        <div className="p-4">
+          <Button onClick={() => fileInputRef.current?.click()} className="w-full">
+            <PlusCircle className="mr-2 h-4 w-4" /> Add Song
           </Button>
           <input
             type="file"
@@ -159,56 +177,83 @@ export default function LyricsManagerPage() {
             accept=".txt"
             multiple
           />
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {lyricsFiles.length > 0 ? (
-              lyricsFiles.map((file, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
-                  <span className="font-medium truncate pr-4">{file.name}</span>
-                  <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="icon" onClick={() => handleShow(file.name)} aria-label={`View ${file.name}`}>
-                      <Eye className="h-5 w-5" />
-                    </Button>
-                    <Dialog open={editingFile?.name === file.name} onOpenChange={(isOpen) => !isOpen && closeEditDialog()}>
-                      <DialogTrigger asChild>
-                         <Button variant="ghost" size="icon" onClick={() => openEditDialog(file)} aria-label={`Edit ${file.name}`}>
-                          <Edit className="h-5 w-5" />
-                        </Button>
-                      </DialogTrigger>
-                       <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Edit {file.name}</DialogTitle>
-                        </DialogHeader>
-                        <Textarea
-                          value={editingContent}
-                          onChange={(e) => setEditingContent(e.target.value)}
-                          rows={15}
-                          className="my-4"
-                        />
-                        <DialogFooter>
-                          <DialogClose asChild>
-                            <Button variant="outline" onClick={closeEditDialog}>Cancel</Button>
-                          </DialogClose>
-                          <Button onClick={handleEditSave}>Save</Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
-                    <Button variant="ghost" size="icon" onClick={() => handleDelete(file.name)} className="text-destructive hover:text-destructive" aria-label={`Delete ${file.name}`}>
-                      <Trash2 className="h-5 w-5" />
-                    </Button>
-                  </div>
+        </div>
+        <nav className="flex flex-col p-4 pt-0 space-y-1">
+          {lyricsFiles.length > 0 ? (
+            lyricsFiles.map((file, index) => (
+              <Button
+                key={index}
+                variant={selectedSong?.name === file.name ? "secondary" : "ghost"}
+                className="justify-start truncate"
+                onClick={() => handleFileSelect(file)}
+              >
+                {file.name}
+              </Button>
+            ))
+          ) : (
+            <p className="text-sm text-muted-foreground text-center p-4">No songs yet.</p>
+          )}
+        </nav>
+      </aside>
+
+      <main className="flex-1 flex flex-col p-4">
+        {selectedSong ? (
+          <Card className="flex-1 flex flex-col">
+            <CardHeader>
+              <CardTitle className="truncate">{selectedSong.name}</CardTitle>
+            </CardHeader>
+            <CardContent className="flex-1 overflow-y-auto">
+              <pre className="whitespace-pre-wrap font-body text-base leading-relaxed">
+                {selectedSong.content}
+              </pre>
+            </CardContent>
+            <CardFooter className="bg-muted/50 p-3 mt-auto border-t">
+               <div className="flex items-center gap-2">
+                  <Button variant="outline" onClick={() => handleShowInNewPage(selectedSong.name)}>
+                    <Eye className="mr-2 h-4 w-4" /> Show
+                  </Button>
+                  
+                  <Dialog open={editingFile?.name === selectedSong.name} onOpenChange={(isOpen) => !isOpen && closeEditDialog()}>
+                    <DialogTrigger asChild>
+                       <Button variant="outline" onClick={() => openEditDialog(selectedSong)}>
+                          <Edit className="mr-2 h-4 w-4" /> Edit
+                       </Button>
+                    </DialogTrigger>
+                     <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Edit {selectedSong.name}</DialogTitle>
+                      </DialogHeader>
+                      <Textarea
+                        value={editingContent}
+                        onChange={(e) => setEditingContent(e.target.value)}
+                        rows={15}
+                        className="my-4"
+                      />
+                      <DialogFooter>
+                        <DialogClose asChild>
+                          <Button variant="outline" onClick={closeEditDialog}>Cancel</Button>
+                        </DialogClose>
+                        <Button onClick={handleEditSave}>Save</Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+
+                  <Button variant="destructive" onClick={() => handleDelete(selectedSong.name)}>
+                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                  </Button>
                 </div>
-              ))
-            ) : (
-              <div className="text-center text-muted-foreground py-8">
-                <p>No lyric files uploaded.</p>
-                <p>Click "Add Song(s)" to upload your .txt files.</p>
-              </div>
-            )}
+            </CardFooter>
+          </Card>
+        ) : (
+          <div className="flex-1 flex items-center justify-center text-center text-muted-foreground">
+            <div className="flex flex-col items-center gap-4">
+                <Music className="h-16 w-16 text-muted-foreground/50" />
+                <h2 className="text-xl font-medium">Select a song to view</h2>
+                <p>Or add a new song to get started.</p>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        )}
+      </main>
     </div>
   );
 }
