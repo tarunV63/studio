@@ -9,7 +9,7 @@ import { Trash2, Edit, Eye, Music, PlusCircle, Search } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { collection, onSnapshot, doc, addDoc, deleteDoc, updateDoc, query, orderBy, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, doc, addDoc, deleteDoc, updateDoc, query, orderBy } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase';
 import { AppHeader } from '@/components/app-header';
 
@@ -53,7 +53,7 @@ export function SidebarContent({ onFileSelect, fileInputRef, handleFileUpload, s
           />
         </div>
       </div>
-      <nav className="flex flex-col p-4 pt-0 space-y-1 overflow-y-auto">
+      <nav className="flex flex-col p-4 pt-0 space-y-2 overflow-y-auto">
         {filteredSongs.length > 0 ? (
           filteredSongs.map((song) => (
             <Button
@@ -88,31 +88,34 @@ export default function LyricsManagerPage() {
     const songsCollection = collection(firestore, 'songs');
     const q = query(songsCollection, orderBy('name'));
 
-    // The listener for real-time updates
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const updatedSongs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const updatedSongs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
       setLyricsFiles(updatedSongs);
 
       setSelectedSong(prevSelected => {
         const stillExists = updatedSongs.find(s => s.id === prevSelected?.id);
-        if (stillExists) return stillExists; // Keep selection if it still exists
-        if (!isMobile && updatedSongs.length > 0) return updatedSongs[0]; // Select first song on desktop
-        return null; // Otherwise, no selection
+        if (stillExists) {
+          // If the selected song still exists, update its content in case it changed
+          return stillExists;
+        }
+        // If not on mobile and there are songs, select the first one.
+        if (window.innerWidth >= 768 && updatedSongs.length > 0) {
+            return updatedSongs[0];
+        }
+        return null; // Otherwise no selection
       });
       
-      setIsLoading(false); // Stop loading once we have data (or know there's none)
+      setIsLoading(false);
     }, (error) => {
       console.error("Error with snapshot listener:", error);
-      setIsLoading(false); // Stop loading on error too
+      setIsLoading(false);
     });
 
-    // Cleanup listener on component unmount
     return () => unsubscribe();
-  }, [isMobile]); // Re-run logic if we switch between mobile/desktop
+  }, []); // Empty dependency array ensures this runs only once
 
   const handleFileSelect = (file) => {
     setSelectedSong(file);
-    // Dispatch a global event so the header (if it's in a sheet) can close itself
     window.dispatchEvent(new CustomEvent('song-selected-mobile'));
   };
 
@@ -125,9 +128,9 @@ export default function LyricsManagerPage() {
         const reader = new FileReader();
         reader.onload = async (e) => {
           const content = e.target.result;
-          const newFile = { name: file.name, content: content as string };
+          const newFile = { name: file.name.replace('.txt',''), content: content as string };
           
-          const existingSong = lyricsFiles.find(f => f.name === file.name);
+          const existingSong = lyricsFiles.find(f => f.name === newFile.name);
           if (!existingSong) {
              await addSong(newFile);
           }
@@ -189,7 +192,7 @@ export default function LyricsManagerPage() {
   if (isLoading) {
     return (
       <div className="flex flex-col h-screen">
-        <AppHeader songs={[]} onFileSelect={handleFileSelect} fileInputRef={fileInputRef} handleFileUpload={handleFileUpload} />
+        <AppHeader songs={[]} onFileSelect={() => {}} fileInputRef={fileInputRef} handleFileUpload={() => {}} />
         <div className="flex-1 flex items-center justify-center">
             <div className="p-4 text-center">Loading songs...</div>
         </div>
@@ -259,8 +262,8 @@ export default function LyricsManagerPage() {
               <div className="flex-1 flex items-center justify-center text-center text-muted-foreground">
                 <div className="flex flex-col items-center gap-4">
                     <Music className="h-16 w-16 text-muted-foreground/50" />
-                    <h2 className="text-xl font-medium">No songs found</h2>
-                    <p>Add a new song to get started.</p>
+                    <h2 className="text-xl font-medium">{lyricsFiles.length > 0 ? "Select a song" : "No songs found"}</h2>
+                    <p>{lyricsFiles.length > 0 ? "Choose a song from the list to see its lyrics." : "Add a new song to get started."}</p>
                      {isMobile && (
                        <Button onClick={() => fileInputRef.current?.click()} className="mt-4">
                           <PlusCircle className="mr-2 h-4 w-4" /> Add Song
