@@ -53,7 +53,7 @@ export function SidebarContent({ onFileSelect, fileInputRef, handleFileUpload, s
           />
         </div>
       </div>
-      <nav className="flex flex-col p-4 pt-0 space-y-2 overflow-y-auto">
+      <nav className="flex flex-col p-4 pt-0 space-y-1 overflow-y-auto">
         {filteredSongs.length > 0 ? (
           filteredSongs.map((song) => (
             <Button
@@ -83,8 +83,7 @@ export default function LyricsManagerPage() {
   const isMobile = useIsMobile();
   const router = useRouter();
   const fileInputRef = useRef(null);
-  const isInitialLoad = useRef(true);
-  
+
   useEffect(() => {
     const songsCollection = collection(firestore, 'songs');
     const q = query(songsCollection, orderBy('name'));
@@ -92,28 +91,33 @@ export default function LyricsManagerPage() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const updatedSongs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
       setLyricsFiles(updatedSongs);
-
-      if (isInitialLoad.current) {
-         if (window.innerWidth >= 768 && updatedSongs.length > 0) {
-            setSelectedSong(updatedSongs[0]);
-        }
-        isInitialLoad.current = false;
-      }
       
       setSelectedSong(prevSelected => {
-        if (!prevSelected) return null;
+        if (!prevSelected) {
+           // If nothing was selected, and we are on desktop, select the first song.
+           if (window.innerWidth >= 768 && updatedSongs.length > 0) {
+              return updatedSongs[0];
+           }
+           return null;
+        }
+        // If something was selected, check if it still exists.
         const stillExists = updatedSongs.find(s => s.id === prevSelected.id);
         return stillExists ? stillExists : null;
       });
 
+      // If no song is selected after update (e.g., it was deleted) and we're on desktop, select the first one if available.
+      if (!selectedSong && window.innerWidth >= 768 && updatedSongs.length > 0) {
+        setSelectedSong(updatedSongs[0]);
+      }
+      
       setIsLoading(false);
     }, (error) => {
       console.error("Error with snapshot listener:", error);
-      setIsLoading(false);
+      setIsLoading(false); // Stop loading even if there's an error
     });
 
     return () => unsubscribe();
-  }, []);
+  }, []); // Empty dependency array ensures this runs only once.
 
   const handleFileSelect = (file) => {
     setSelectedSong(file);
@@ -148,16 +152,12 @@ export default function LyricsManagerPage() {
   );
 
   const handleDelete = async (songId) => {
-    if (selectedSong && selectedSong.id === songId) {
-      const currentIndex = filteredSongs.findIndex(s => s.id === songId);
-      if (filteredSongs.length > 1) {
-        const nextIndex = currentIndex === 0 ? 1 : currentIndex - 1;
-        setSelectedSong(filteredSongs[nextIndex]);
-      } else {
-        setSelectedSong(null);
-      }
-    }
     await deleteSong(songId);
+    // After deletion, the onSnapshot listener will automatically update the UI
+    // and the selection logic within it will handle selecting the next song.
+    if (selectedSong?.id === songId) {
+        setSelectedSong(null);
+    }
   };
 
   const handleEditSave = async () => {
