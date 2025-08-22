@@ -1,2 +1,19 @@
-// This file is intentionally left blank. 
-// The Firebase configuration will be injected automatically.
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getFirestore } from 'firebase/firestore';
+
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  "projectId": "lryics-locker",
+  "appId": "1:630263628513:web:9d54cfca9e8ace7c65ada0",
+  "storageBucket": "lryics-locker.firebasestorage.app",
+  "apiKey": "AIzaSyBwQ2TO4_4evTeOqYp8s-ZDC1G5Q76mvUc",
+  "authDomain": "lryics-locker.firebaseapp.com",
+  "measurementId": "",
+  "messagingSenderId": "630263628513"
+};
+
+// Initialize Firebase
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+const firestore = getFirestore(app);
+
+export { app, firestore };
