@@ -9,22 +9,14 @@ import { Trash2, Edit, Eye, Music, PlusCircle, Search } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { collection, doc, addDoc, deleteDoc, updateDoc, query, orderBy, getDocs } from 'firebase/firestore';
-import { firestore } from '@/lib/firebase';
 import { AppHeader } from '@/components/app-header';
 import { useToast } from '@/hooks/use-toast';
 
-async function addSong(song) {
-  await addDoc(collection(firestore, 'songs'), song);
-}
-
-async function deleteSong(songId) {
-  await deleteDoc(doc(firestore, 'songs', songId));
-}
-
-async function updateSong(songId, content) {
-  await updateDoc(doc(firestore, 'songs', songId), { content });
-}
+// Dummy data to start with
+const initialSongs = [
+  { id: '1', name: 'Sample Song 1', content: 'These are the lyrics for the first sample song.' },
+  { id: '2', name: 'Sample Song 2', content: 'Lyrics for the second song go here.' },
+];
 
 export function SidebarContent({ onFileSelect, fileInputRef, handleFileUpload, searchTerm, setSearchTerm, filteredSongs, selectedSong }) {
   return (
@@ -75,9 +67,8 @@ export function SidebarContent({ onFileSelect, fileInputRef, handleFileUpload, s
 }
 
 export default function LyricsManagerPage() {
-  const [lyricsFiles, setLyricsFiles] = useState([]);
+  const [lyricsFiles, setLyricsFiles] = useState(initialSongs);
   const [selectedSong, setSelectedSong] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [editingFile, setEditingFile] = useState(null);
   const [editingContent, setEditingContent] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -85,61 +76,17 @@ export default function LyricsManagerPage() {
   const router = useRouter();
   const fileInputRef = useRef(null);
   const { toast } = useToast();
-  const [refetchTrigger, setRefetchTrigger] = useState(0);
 
   useEffect(() => {
-    const fetchSongs = async () => {
-      setIsLoading(true);
-      try {
-        const songsCollection = collection(firestore, 'songs');
-        const q = query(songsCollection, orderBy('name'));
-        const querySnapshot = await getDocs(q);
-        const updatedSongs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
-        setLyricsFiles(updatedSongs);
-        
-        // Logic to select the first song after fetching
-        if (updatedSongs.length > 0 && !isMobile) {
-            const currentSelectedId = selectedSong?.id;
-            const isSelectedSongStillPresent = updatedSongs.some(s => s.id === currentSelectedId);
-            if (!isSelectedSongStillPresent) {
-                 setSelectedSong(updatedSongs[0]);
-            }
-        }
-
-      } catch (error) {
-        console.error("Error fetching songs from Firestore:", error);
-        toast({
-          variant: "destructive",
-          title: "Connection Error",
-          description: "Could not connect to Firestore. Please check your Firebase project settings, API status, and security rules.",
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchSongs();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refetchTrigger, toast]);
-
-  useEffect(() => {
-    // This effect handles selecting the first song on desktop when the component loads or songs change.
+    // Select the first song on desktop when the component loads or songs change.
     if (!isMobile && lyricsFiles.length > 0 && !selectedSong) {
       setSelectedSong(lyricsFiles[0]);
     }
     
-    // This handles deselecting a song if it's deleted.
+    // Deselect a song if it's deleted.
     if (selectedSong && !lyricsFiles.find(s => s.id === selectedSong.id)) {
         setSelectedSong(isMobile ? null : lyricsFiles[0] || null);
     }
-     // This handles updating the content of the selected song if it was edited.
-    if (selectedSong) {
-        const updatedSelectedSong = lyricsFiles.find(s => s.id === selectedSong.id);
-        if (updatedSelectedSong) {
-            setSelectedSong(updatedSelectedSong);
-        }
-    }
-
   }, [lyricsFiles, isMobile, selectedSong]);
 
 
@@ -157,19 +104,19 @@ export default function LyricsManagerPage() {
     Array.from(files).forEach(file => {
       if (file.type === 'text/plain') {
         const reader = new FileReader();
-        reader.onload = async (e) => {
+        reader.onload = (e) => {
           const content = e.target.result;
-          const newFile = { name: file.name.replace('.txt',''), content: content as string };
+          const fileName = file.name.replace('.txt','');
           
-          const existingSong = lyricsFiles.find(f => f.name === newFile.name);
+          const existingSong = lyricsFiles.find(f => f.name === fileName);
           if (!existingSong) {
-             await addSong(newFile);
-             setRefetchTrigger(prev => prev + 1); // Trigger a refetch
+             const newFile = { id: Date.now().toString(), name: fileName, content: content as string };
+             setLyricsFiles(prevFiles => [...prevFiles, newFile].sort((a, b) => a.name.localeCompare(b.name)));
           } else {
             toast({
                 variant: "destructive",
                 title: "Song Exists",
-                description: `A song named "${newFile.name}" already exists.`,
+                description: `A song named "${fileName}" already exists.`,
             });
           }
         };
@@ -187,20 +134,33 @@ export default function LyricsManagerPage() {
   );
 
   const handleDelete = async (songId) => {
-    await deleteSong(songId);
-    setRefetchTrigger(prev => prev + 1); // Trigger a refetch
+    setLyricsFiles(prevFiles => prevFiles.filter(file => file.id !== songId));
   };
 
   const handleEditSave = async () => {
     if (!editingFile) return;
-    await updateSong(editingFile.id, editingContent);
+    setLyricsFiles(prevFiles => 
+        prevFiles.map(file => 
+            file.id === editingFile.id ? { ...file, content: editingContent } : file
+        )
+    );
+    // Update the selected song view as well
+    if(selectedSong?.id === editingFile.id) {
+        setSelectedSong(prevSong => ({...prevSong, content: editingContent}));
+    }
     setEditingFile(null);
     setEditingContent('');
-    setRefetchTrigger(prev => prev + 1); // Trigger a refetch
   };
 
   const handleShowInNewPage = (songId) => {
-    router.push(`/lyrics/view?id=${songId}`);
+    // This will not work correctly without a database, as the view page cannot fetch data.
+    // We can pass data via query params for a temporary solution, but it's not ideal for large content.
+    const song = lyricsFiles.find(s => s.id === songId);
+    if (song) {
+        // Storing to session storage to pass to the next page as a workaround
+        sessionStorage.setItem('temp_song_view', JSON.stringify(song));
+        router.push(`/lyrics/view?id=${songId}`);
+    }
   };
 
   const openEditDialog = (file) => {
@@ -222,17 +182,6 @@ export default function LyricsManagerPage() {
     filteredSongs,
     selectedSong
   };
-
-  if (isLoading) {
-    return (
-      <div className="flex flex-col h-screen">
-        <AppHeader onFileSelect={() => {}} fileInputRef={fileInputRef} handleFileUpload={() => {}} songs={[]} />
-        <div className="flex-1 flex items-center justify-center">
-            <div className="p-4 text-center">Loading songs...</div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col h-screen">

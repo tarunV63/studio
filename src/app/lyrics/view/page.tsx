@@ -3,48 +3,30 @@
 import { useState, useEffect, Suspense } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
-import { doc, getDoc } from 'firebase/firestore';
-import { firestore } from '@/lib/firebase';
 
 function LyricsView() {
   const [song, setSong] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const songId = searchParams.get('id');
 
   useEffect(() => {
-    if (!songId) {
-      setError('No song ID provided.');
-      setIsLoading(false);
-      return;
-    }
-
-    const fetchSong = async () => {
-      try {
-        const songDoc = await getDoc(doc(firestore, 'songs', songId));
-        if (songDoc.exists()) {
-          setSong({ id: songDoc.id, ...songDoc.data() });
-        } else {
-          setError('Song not found.');
-        }
-      } catch (err) {
-        console.error("Error fetching song:", err);
-        setError('Failed to load the song.');
-      } finally {
-        setIsLoading(false);
+    // Workaround to get data from the main page without a database
+    try {
+      const storedSong = sessionStorage.getItem('temp_song_view');
+      if (storedSong) {
+        setSong(JSON.parse(storedSong));
+        // Clean up session storage after use
+        sessionStorage.removeItem('temp_song_view');
+      } else {
+        setError('No song data found. Please navigate from the main page.');
       }
-    };
-
-    fetchSong();
-  }, [songId]);
-
-  if (isLoading) {
-    return <div className="p-4 text-center">Loading lyrics...</div>;
-  }
+    } catch (e) {
+      console.error("Error reading from session storage:", e);
+      setError("Failed to load song data.");
+    }
+  }, []);
 
   if (error) {
     return <div className="p-4 text-center text-destructive">{error}</div>;
