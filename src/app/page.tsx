@@ -9,21 +9,33 @@ import { Trash2, Edit, Eye, Music, PlusCircle, Search } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { collection, onSnapshot, doc, addDoc, deleteDoc, updateDoc, getDoc, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, doc, addDoc, deleteDoc, updateDoc, query, orderBy, getDocs, writeBatch } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase';
 
-async function getSongs() {
-  // This function is for initial load, realtime updates are handled by onSnapshot
-  return new Promise((resolve, reject) => {
-    const songsCollection = collection(firestore, 'songs');
-    const q = query(songsCollection, orderBy('name'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const songs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      resolve(songs);
-      unsubscribe(); // Unsubscribe after the first fetch
-    }, reject);
-  });
-}
+const DEMO_SONGS = [
+    {
+      name: 'Demo Song 1.txt',
+      content: `This is the first demo song.
+Feel free to edit or delete it.
+
+You can add your own songs by clicking the "Add Song" button.`,
+    },
+    {
+      name: 'Demo Song 2.txt',
+      content: `Here are the lyrics for the second song.
+It's just another example.
+
+The content is stored securely in Firebase Firestore.`,
+    },
+    {
+      name: 'Demo Song 3.txt',
+      content: `Verse 1:
+This is the final demo song to show the functionality.
+
+Chorus:
+Everything is synced across your devices in real-time.`,
+    },
+];
 
 async function addSong(song) {
   await addDoc(collection(firestore, 'songs'), song);
@@ -65,7 +77,7 @@ export function SidebarContent({ onFileSelect, fileInputRef, handleFileUpload, s
           />
         </div>
       </div>
-      <nav className="flex flex-col p-4 pt-0 space-y-1 overflow-y-auto">
+      <nav className="flex flex-col p-4 pt-0 space-y-2 overflow-y-auto">
         {filteredSongs.length > 0 ? (
           filteredSongs.map((song) => (
             <Button
@@ -100,9 +112,25 @@ export default function LyricsManagerPage() {
     const songsCollection = collection(firestore, 'songs');
     const q = query(songsCollection, orderBy('name'));
     
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+        
+      if (snapshot.empty && isLoading) {
+        // If the collection is empty on first load, add demo songs
+        try {
+          const batch = writeBatch(firestore);
+          DEMO_SONGS.forEach(song => {
+            const docRef = doc(collection(firestore, "songs"));
+            batch.set(docRef, song);
+          });
+          await batch.commit();
+        } catch (error) {
+            console.error("Error adding demo songs: ", error);
+        }
+      }
+
       const songs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setLyricsFiles(songs);
+
       if (isLoading) {
         if (songs.length > 0 && !isMobile) {
           setSelectedSong(songs[0]);
