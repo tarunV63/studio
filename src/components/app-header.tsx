@@ -12,6 +12,14 @@ export function AppHeader({ songs, onFileSelect, fileInputRef, handleFileUpload 
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Automatically open the sheet on mobile view on initial load.
+  useEffect(() => {
+    if (isMobile) {
+      setIsSheetOpen(true);
+    }
+  }, [isMobile]);
+
+
   // Close sheet when a song is selected on mobile
   useEffect(() => {
     const handleClose = () => setIsSheetOpen(false);
@@ -65,5 +73,3 @@ export function AppHeader({ songs, onFileSelect, fileInputRef, handleFileUpload 
     </header>
   );
 }
-
-    
