@@ -83,9 +83,8 @@ export default function LyricsManagerPage() {
   const isMobile = useIsMobile();
   const router = useRouter();
   const fileInputRef = useRef(null);
-  const [refetchTrigger, setRefetchTrigger] = useState(0); // State to trigger refetch
+  const [refetchTrigger, setRefetchTrigger] = useState(0);
 
-  // Effect for fetching songs from Firestore.
   useEffect(() => {
     const fetchSongs = async () => {
       setIsLoading(true);
@@ -103,22 +102,17 @@ export default function LyricsManagerPage() {
     };
 
     fetchSongs();
-  }, [refetchTrigger]); // Refetch when refetchTrigger changes
+  }, [refetchTrigger]);
 
-  // Effect for handling the selected song logic.
   useEffect(() => {
-    if (isLoading) return; // Don't run this logic while loading
+    if (isLoading) return;
 
     const currentSongExists = selectedSong && lyricsFiles.some(s => s.id === selectedSong.id);
 
-    if (!currentSongExists) {
-        if (!isMobile && lyricsFiles.length > 0) {
-            setSelectedSong(lyricsFiles[0]);
-        } else {
-            setSelectedSong(null);
-        }
+    if (!currentSongExists && !isMobile && lyricsFiles.length > 0) {
+      setSelectedSong(lyricsFiles[0]);
     } else if (!isMobile && !selectedSong && lyricsFiles.length > 0) {
-        setSelectedSong(lyricsFiles[0]);
+      setSelectedSong(lyricsFiles[0]);
     }
   }, [lyricsFiles, selectedSong, isMobile, isLoading]);
 
@@ -144,7 +138,7 @@ export default function LyricsManagerPage() {
           const existingSong = lyricsFiles.find(f => f.name === newFile.name);
           if (!existingSong) {
              await addSong(newFile);
-             setRefetchTrigger(prev => prev + 1); // Trigger a refetch
+             setRefetchTrigger(prev => prev + 1);
           }
         };
         reader.readAsText(file);
@@ -158,7 +152,7 @@ export default function LyricsManagerPage() {
 
   const handleDelete = async (songId) => {
     await deleteSong(songId);
-    setRefetchTrigger(prev => prev + 1); // Trigger a refetch
+    setRefetchTrigger(prev => prev + 1);
   };
 
   const handleEditSave = async () => {
@@ -166,7 +160,7 @@ export default function LyricsManagerPage() {
     await updateSong(editingFile.id, editingContent);
     setEditingFile(null);
     setEditingContent('');
-    setRefetchTrigger(prev => prev + 1); // Trigger a refetch
+    setRefetchTrigger(prev => prev + 1);
   };
 
   const handleShowInNewPage = (songId) => {
