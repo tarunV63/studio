@@ -85,7 +85,7 @@ export default function LyricsManagerPage() {
   const router = useRouter();
   const fileInputRef = useRef(null);
   
-  // Effect for fetching songs from Firestore
+  // Effect for fetching songs from Firestore. Runs only once on mount.
   useEffect(() => {
     setIsLoading(true);
     const songsCollection = collection(firestore, 'songs');
@@ -97,21 +97,22 @@ export default function LyricsManagerPage() {
       setIsLoading(false);
     }, (error) => {
       console.error("Error fetching songs:", error);
-      setIsLoading(false);
+      setIsLoading(false); // Also stop loading on error
     });
 
     // Cleanup subscription on unmount
     return () => unsubscribe();
-  }, []); // Empty dependency array ensures this runs only once on mount
+  }, []); // Empty dependency array ensures this runs only once
 
-  // Effect for handling the selection logic
+  // Effect for handling the selected song logic.
+  // Runs when the list of songs changes, or when switching between mobile/desktop.
   useEffect(() => {
-    // If a song is selected, but it no longer exists in the list (e.g., deleted), update the selection
+    // If a song was selected, but it no longer exists (e.g., deleted)
     if (selectedSong && !lyricsFiles.find(s => s.id === selectedSong.id)) {
-        // If on desktop, select the first available song, otherwise clear selection on mobile
-        setSelectedSong(isMobile ? null : lyricsFiles[0] || null);
+      // On desktop, select the first available song. On mobile, clear selection.
+      setSelectedSong(isMobile ? null : lyricsFiles[0] || null);
     } 
-    // If we are on desktop, have songs, but no song is selected, select the first one.
+    // If on desktop, we have songs, but nothing is selected, select the first one.
     else if (!isMobile && lyricsFiles.length > 0 && !selectedSong) {
       setSelectedSong(lyricsFiles[0]);
     }
@@ -276,3 +277,5 @@ export default function LyricsManagerPage() {
       </div>
     );
 }
+
+    
