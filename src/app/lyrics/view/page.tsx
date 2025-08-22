@@ -12,13 +12,12 @@ export default function ViewLyricsPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const storedLyrics = localStorage.getItem('current_lyrics');
-      if (storedLyrics) {
-        setLyrics(storedLyrics);
-      }
-      setIsLoading(false);
+    // This effect runs only on the client-side
+    const storedLyrics = localStorage.getItem('current_lyrics');
+    if (storedLyrics) {
+      setLyrics(storedLyrics);
     }
+    setIsLoading(false);
   }, []);
 
   if (isLoading) {
@@ -40,7 +39,7 @@ export default function ViewLyricsPage() {
               {lyrics}
             </pre>
           ) : (
-            <p className="text-muted-foreground">No lyrics to display.</p>
+            <p className="text-muted-foreground">No lyrics to display. Please go back and select a song.</p>
           )}
         </CardContent>
       </Card>

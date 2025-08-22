@@ -8,10 +8,47 @@ import { useRouter } from 'next/navigation';
 import { Trash2, Edit, Eye, Upload } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 
+const sampleSongs = [
+  {
+    name: "Sample Song 1.txt",
+    content: `(Verse 1)
+This is the first line of the first song.
+This is the second line, it's not very long.
+Here comes the chorus, get ready to sing.
+Oh, sample song, you mean everything.
+
+(Chorus)
+Sample, sample, oh so grand.
+The best example in the land.
+Easy to read, easy to see.
+A perfect sample for you and me.`
+  },
+  {
+    name: "Sample Song 2.txt",
+    content: `(Verse 1)
+Woke up this morning, the sky was blue.
+Another sample song, just for you.
+With simple rhymes and a steady beat.
+This lyrical content can't be beat.
+
+(Chorus)
+Oh, it's another sample, loud and clear.
+To show the feature we hold so dear.
+Upload your own, or edit this one.
+The lyrics manager is so much fun!`
+  }
+];
+
 async function getFiles() {
   if (typeof window !== 'undefined') {
     const files = localStorage.getItem('lyrics_files');
-    return files ? JSON.parse(files) : [];
+    if (files) {
+      return JSON.parse(files);
+    } else {
+      // If no files in localStorage, use sample songs
+      saveFiles(sampleSongs);
+      return sampleSongs;
+    }
   }
   return [];
 }
@@ -49,7 +86,10 @@ export default function LyricsManagerPage() {
         const reader = new FileReader();
         reader.onload = (e) => {
           const content = e.target.result;
-          newFiles.push({ name: file.name, content });
+          // Avoid adding duplicates
+          if (!newFiles.some(f => f.name === file.name)) {
+            newFiles.push({ name: file.name, content });
+          }
           processedCount++;
           if (processedCount === files.length) {
             setLyricsFiles(newFiles);
