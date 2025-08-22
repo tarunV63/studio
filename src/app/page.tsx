@@ -97,9 +97,6 @@ export default function LyricsManagerPage() {
         const querySnapshot = await getDocs(q);
         const updatedSongs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
         setLyricsFiles(updatedSongs);
-        if (updatedSongs.length > 0 && !isMobile) {
-          setSelectedSong(updatedSongs[0]);
-        }
       } catch (error) {
         console.error("Error fetching songs:", error);
         toast({
@@ -113,21 +110,19 @@ export default function LyricsManagerPage() {
     };
 
     fetchSongs();
-  }, [refetchTrigger, isMobile, toast]);
-
+  }, [refetchTrigger, toast]);
 
   useEffect(() => {
-    // This effect handles selecting the first song when the list loads or view changes.
-    // It is separated to avoid re-fetching data from firestore.
-    const currentSongExists = selectedSong && lyricsFiles.some(s => s.id === selectedSong.id);
-    if (!isMobile && lyricsFiles.length > 0 && !currentSongExists) {
-      setSelectedSong(lyricsFiles[0]);
-    } else if (selectedSong && isMobile) {
-      // Don't clear selection on mobile
-    } else if (!selectedSong && !isMobile && lyricsFiles.length > 0) {
-      setSelectedSong(lyricsFiles[0]);
+    if (!isMobile && lyricsFiles.length > 0) {
+        // If a song is already selected and it's still in the list, do nothing.
+        const currentSongStillExists = selectedSong && lyricsFiles.some(s => s.id === selectedSong.id);
+        if (!currentSongStillExists) {
+           setSelectedSong(lyricsFiles[0]);
+        }
+    } else if (isMobile) {
+        // On mobile, don't auto-select a song, let the user tap from the sheet.
     }
-  }, [lyricsFiles, selectedSong, isMobile]);
+  }, [lyricsFiles, isMobile, selectedSong]);
 
 
   const handleFileSelect = (file) => {
@@ -167,7 +162,7 @@ export default function LyricsManagerPage() {
     await deleteSong(songId);
     setLyricsFiles(files => files.filter(f => f.id !== songId));
     if (selectedSong?.id === songId) {
-        setSelectedSong(null);
+        setSelectedSong(lyricsFiles.length > 1 ? lyricsFiles[0] : null);
     }
   };
 
@@ -176,7 +171,7 @@ export default function LyricsManagerPage() {
     await updateSong(editingFile.id, editingContent);
     setEditingFile(null);
     setEditingContent('');
-    setRefetchTrigger(prev => prev + 1);
+    setRefetchTrigger(prev => prev + 1); // This will re-fetch and show updated content
   };
 
   const handleShowInNewPage = (songId) => {
