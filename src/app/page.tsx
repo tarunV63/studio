@@ -9,7 +9,7 @@ import { Trash2, Edit, Eye, Music, PlusCircle, Search } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { collection, onSnapshot, doc, addDoc, deleteDoc, updateDoc, query, orderBy } from 'firebase/firestore';
+import { collection, doc, addDoc, deleteDoc, updateDoc, query, orderBy, getDocs, onSnapshot } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase';
 import { AppHeader } from '@/components/app-header';
 
@@ -88,36 +88,39 @@ export default function LyricsManagerPage() {
     const songsCollection = collection(firestore, 'songs');
     const q = query(songsCollection, orderBy('name'));
 
+    // Listen for real-time updates
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const updatedSongs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
       setLyricsFiles(updatedSongs);
-      
+
+      // Update selected song if it still exists
       setSelectedSong(prevSelected => {
         if (!prevSelected) {
-           // If nothing was selected, and we are on desktop, select the first song.
-           if (window.innerWidth >= 768 && updatedSongs.length > 0) {
-              return updatedSongs[0];
-           }
-           return null;
+          // If on desktop and there are songs, select the first one.
+          if (!isMobile && updatedSongs.length > 0) {
+            return updatedSongs[0];
+          }
+          return null;
         }
-        // If something was selected, check if it still exists.
         const stillExists = updatedSongs.find(s => s.id === prevSelected.id);
-        return stillExists ? stillExists : null;
+        if (stillExists) {
+            return stillExists;
+        }
+        // If the selected song was deleted, select the first one if on desktop.
+        if (!isMobile && updatedSongs.length > 0) {
+            return updatedSongs[0];
+        }
+        return null;
       });
-
-      // If no song is selected after update (e.g., it was deleted) and we're on desktop, select the first one if available.
-      if (!selectedSong && window.innerWidth >= 768 && updatedSongs.length > 0) {
-        setSelectedSong(updatedSongs[0]);
-      }
       
       setIsLoading(false);
     }, (error) => {
       console.error("Error with snapshot listener:", error);
-      setIsLoading(false); // Stop loading even if there's an error
+      setIsLoading(false);
     });
 
     return () => unsubscribe();
-  }, []); // Empty dependency array ensures this runs only once.
+  }, [isMobile]); // Rerun when isMobile changes to set initial song on desktop
 
   const handleFileSelect = (file) => {
     setSelectedSong(file);
@@ -152,18 +155,15 @@ export default function LyricsManagerPage() {
   );
 
   const handleDelete = async (songId) => {
-    await deleteSong(songId);
-    // After deletion, the onSnapshot listener will automatically update the UI
-    // and the selection logic within it will handle selecting the next song.
     if (selectedSong?.id === songId) {
-        setSelectedSong(null);
+      setSelectedSong(null);
     }
+    await deleteSong(songId);
   };
 
   const handleEditSave = async () => {
     if (!editingFile) return;
     await updateSong(editingFile.id, editingContent);
-    
     setEditingFile(null);
     setEditingContent('');
   };
