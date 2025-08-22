@@ -84,8 +84,8 @@ export default function LyricsManagerPage() {
   const isMobile = useIsMobile();
   const router = useRouter();
   const fileInputRef = useRef(null);
-  const [refetchTrigger, setRefetchTrigger] = useState(0);
   const { toast } = useToast();
+  const [refetchTrigger, setRefetchTrigger] = useState(0);
 
   useEffect(() => {
     const fetchSongs = async () => {
@@ -112,21 +112,31 @@ export default function LyricsManagerPage() {
   }, [refetchTrigger, toast]);
 
   useEffect(() => {
-    if (lyricsFiles.length > 0 && !selectedSong) {
-        if (!isMobile) {
-            setSelectedSong(lyricsFiles[0]);
-        }
+    // This effect handles selecting the first song.
+    // It runs only when the song list or mobile status changes.
+    if (!isLoading && lyricsFiles.length > 0 && !selectedSong) {
+      if (!isMobile) {
+        setSelectedSong(lyricsFiles[0]);
+      }
     }
-     // If a selected song is deleted, select the first one if not on mobile
-    if (selectedSong && !lyricsFiles.some(s => s.id === selectedSong.id)) {
-        if (!isMobile && lyricsFiles.length > 0) {
-            setSelectedSong(lyricsFiles[0]);
-        } else {
-            setSelectedSong(null);
+
+    // This handles the case where the currently selected song is deleted.
+    if (selectedSong && !lyricsFiles.some(file => file.id === selectedSong.id)) {
+      if (!isMobile && lyricsFiles.length > 0) {
+        setSelectedSong(lyricsFiles[0]);
+      } else {
+        setSelectedSong(null); // Clear selection on mobile or if no songs are left
+      }
+    }
+     // This handles updating the content of the selected song if it was edited elsewhere.
+    if (selectedSong) {
+        const updatedSelectedSong = lyricsFiles.find(s => s.id === selectedSong.id);
+        if (updatedSelectedSong) {
+            setSelectedSong(updatedSelectedSong);
         }
     }
 
-  }, [lyricsFiles, isMobile, selectedSong]);
+  }, [lyricsFiles, isMobile, isLoading, selectedSong]);
 
 
   const handleFileSelect = (file) => {
@@ -150,7 +160,7 @@ export default function LyricsManagerPage() {
           const existingSong = lyricsFiles.find(f => f.name === newFile.name);
           if (!existingSong) {
              await addSong(newFile);
-             setRefetchTrigger(prev => prev + 1);
+             setRefetchTrigger(prev => prev + 1); // Trigger a refetch
           } else {
             toast({
                 variant: "destructive",
@@ -174,7 +184,7 @@ export default function LyricsManagerPage() {
 
   const handleDelete = async (songId) => {
     await deleteSong(songId);
-    setRefetchTrigger(prev => prev + 1);
+    setRefetchTrigger(prev => prev + 1); // Trigger a refetch
   };
 
   const handleEditSave = async () => {
@@ -182,7 +192,7 @@ export default function LyricsManagerPage() {
     await updateSong(editingFile.id, editingContent);
     setEditingFile(null);
     setEditingContent('');
-    setRefetchTrigger(prev => prev + 1);
+    setRefetchTrigger(prev => prev + 1); // Trigger a refetch
   };
 
   const handleShowInNewPage = (songId) => {
@@ -208,23 +218,6 @@ export default function LyricsManagerPage() {
     filteredSongs,
     selectedSong
   };
-  
-  // Update selected song content if it was edited
-  useEffect(() => {
-    if (selectedSong) {
-        const updatedSelectedSong = lyricsFiles.find(s => s.id === selectedSong.id);
-        if (updatedSelectedSong) {
-            setSelectedSong(updatedSelectedSong);
-        } else {
-             // If the selected song is no longer in the list (e.g., deleted)
-            if (!isMobile && lyricsFiles.length > 0) {
-                setSelectedSong(lyricsFiles[0]);
-            } else {
-                setSelectedSong(null);
-            }
-        }
-    }
-  }, [lyricsFiles, selectedSong, isMobile]);
 
   if (isLoading) {
     return (
@@ -314,3 +307,5 @@ export default function LyricsManagerPage() {
       </div>
     );
 }
+
+    
