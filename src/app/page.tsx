@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import { Trash2, Edit, Eye, Music, PlusCircle, Search, Menu } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 
@@ -246,7 +246,10 @@ export default function LyricsManagerPage() {
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="p-0 w-[300px]">
-             <SidebarContent {...sidebarProps} />
+            <SheetHeader className="p-4 border-b">
+                <SheetTitle>Song List</SheetTitle>
+            </SheetHeader>
+            <SidebarContent {...sidebarProps} />
           </SheetContent>
         </Sheet>
       ) : (
