@@ -96,8 +96,18 @@ export default function LyricsManagerPage() {
         const querySnapshot = await getDocs(q);
         const updatedSongs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
         setLyricsFiles(updatedSongs);
+        
+        // Logic to select the first song after fetching
+        if (updatedSongs.length > 0 && !isMobile) {
+            const currentSelectedId = selectedSong?.id;
+            const isSelectedSongStillPresent = updatedSongs.some(s => s.id === currentSelectedId);
+            if (!isSelectedSongStillPresent) {
+                 setSelectedSong(updatedSongs[0]);
+            }
+        }
+
       } catch (error) {
-        console.error("Error fetching songs:", error);
+        console.error("Error fetching songs from Firestore:", error);
         toast({
           variant: "destructive",
           title: "Connection Error",
@@ -109,26 +119,20 @@ export default function LyricsManagerPage() {
     };
 
     fetchSongs();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refetchTrigger, toast]);
 
   useEffect(() => {
-    // This effect handles selecting the first song.
-    // It runs only when the song list or mobile status changes.
-    if (!isLoading && lyricsFiles.length > 0 && !selectedSong) {
-      if (!isMobile) {
-        setSelectedSong(lyricsFiles[0]);
-      }
+    // This effect handles selecting the first song on desktop when the component loads or songs change.
+    if (!isMobile && lyricsFiles.length > 0 && !selectedSong) {
+      setSelectedSong(lyricsFiles[0]);
     }
-
-    // This handles the case where the currently selected song is deleted.
-    if (selectedSong && !lyricsFiles.some(file => file.id === selectedSong.id)) {
-      if (!isMobile && lyricsFiles.length > 0) {
-        setSelectedSong(lyricsFiles[0]);
-      } else {
-        setSelectedSong(null); // Clear selection on mobile or if no songs are left
-      }
+    
+    // This handles deselecting a song if it's deleted.
+    if (selectedSong && !lyricsFiles.find(s => s.id === selectedSong.id)) {
+        setSelectedSong(isMobile ? null : lyricsFiles[0] || null);
     }
-     // This handles updating the content of the selected song if it was edited elsewhere.
+     // This handles updating the content of the selected song if it was edited.
     if (selectedSong) {
         const updatedSelectedSong = lyricsFiles.find(s => s.id === selectedSong.id);
         if (updatedSelectedSong) {
@@ -136,7 +140,7 @@ export default function LyricsManagerPage() {
         }
     }
 
-  }, [lyricsFiles, isMobile, isLoading, selectedSong]);
+  }, [lyricsFiles, isMobile, selectedSong]);
 
 
   const handleFileSelect = (file) => {
@@ -307,5 +311,3 @@ export default function LyricsManagerPage() {
       </div>
     );
 }
-
-    
