@@ -6,54 +6,33 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { SidebarContent } from '@/app/page';
 import { useState, useRef, useEffect } from 'react';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
-import { firestore } from '@/lib/firebase';
 
-
-export function AppHeader() {
+export function AppHeader({ songs, onFileSelect, fileInputRef, handleFileUpload }) {
   const isMobile = useIsMobile();
   const [isSheetOpen, setIsSheetOpen] = useState(false);
-  
-  const [lyricsFiles, setLyricsFiles] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const fileInputRef = useRef(null);
 
+  // Close sheet when a song is selected on mobile
   useEffect(() => {
-    const songsCollection = collection(firestore, 'songs');
-    const q = query(songsCollection, orderBy('name'));
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const songs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setLyricsFiles(songs);
-    });
-
-    return () => unsubscribe();
+    const handleClose = () => setIsSheetOpen(false);
+    window.addEventListener('song-selected-mobile', handleClose);
+    return () => {
+      window.removeEventListener('song-selected-mobile', handleClose);
+    };
   }, []);
 
-  const handleFileSelect = (file) => {
-    window.dispatchEvent(new CustomEvent('song-selected', { detail: file }));
-    setIsSheetOpen(false); // Close sheet on selection
-  };
-  
-    const handleFileUpload = () => {
-    // The main page handles the upload logic, this is a stub
-    // but we can trigger the main page's input if needed.
-    // For now, this button is inside the sidebar which is only for mobile here.
-    // The main page's button should be used.
-  };
-
-  const filteredSongs = lyricsFiles.filter(file =>
+  const filteredSongs = songs.filter(file =>
     file.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const sidebarProps = {
-    onFileSelect: handleFileSelect,
+    onFileSelect,
     fileInputRef,
     handleFileUpload,
     searchTerm,
     setSearchTerm,
     filteredSongs,
-    selectedSong: null 
+    selectedSong: null // No concept of selected song in the header's sheet
   };
 
   return (

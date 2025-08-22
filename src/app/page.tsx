@@ -9,8 +9,9 @@ import { Trash2, Edit, Eye, Music, PlusCircle, Search } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { collection, onSnapshot, doc, addDoc, deleteDoc, updateDoc, query, orderBy, getDocs, writeBatch } from 'firebase/firestore';
+import { collection, onSnapshot, doc, addDoc, deleteDoc, updateDoc, query, orderBy, getDocs } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase';
+import { AppHeader } from '@/components/app-header';
 
 async function addSong(song) {
   await addDoc(collection(firestore, 'songs'), song);
@@ -87,73 +88,32 @@ export default function LyricsManagerPage() {
     const songsCollection = collection(firestore, 'songs');
     const q = query(songsCollection, orderBy('name'));
 
-    // First, get the initial data quickly
-    getDocs(q).then(initialSnapshot => {
-      const initialSongs = initialSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setLyricsFiles(initialSongs);
-      
-      // Set initial selected song
-      if (!isMobile && initialSongs.length > 0) {
-        setSelectedSong(initialSongs[0]);
-      }
-      
-      setIsLoading(false); // Stop loading indicator quickly
-      
-      // Then, listen for real-time updates
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const updatedSongs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setLyricsFiles(updatedSongs);
-  
-        // Update selected song if it still exists
-        setSelectedSong(prevSelected => {
-          if (prevSelected) {
-            const stillExists = updatedSongs.find(s => s.id === prevSelected.id);
-            return stillExists || null;
-          }
-          if (!isMobile && updatedSongs.length > 0) {
-            return updatedSongs[0];
-          }
-          return null;
-        });
+    // The listener for real-time updates
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const updatedSongs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setLyricsFiles(updatedSongs);
 
-      }, (error) => {
-        console.error("Error with snapshot listener:", error);
-        setIsLoading(false);
+      setSelectedSong(prevSelected => {
+        const stillExists = updatedSongs.find(s => s.id === prevSelected?.id);
+        if (stillExists) return stillExists; // Keep selection if it still exists
+        if (!isMobile && updatedSongs.length > 0) return updatedSongs[0]; // Select first song on desktop
+        return null; // Otherwise, no selection
       });
-
-      return () => unsubscribe();
-    }).catch(error => {
-      console.error("Error fetching initial songs:", error);
-      setIsLoading(false);
+      
+      setIsLoading(false); // Stop loading once we have data (or know there's none)
+    }, (error) => {
+      console.error("Error with snapshot listener:", error);
+      setIsLoading(false); // Stop loading on error too
     });
 
-  }, []); // Only run once on mount
-
-  useEffect(() => {
-    // This effect handles selecting/deselecting song when switching between mobile/desktop view
-    if (isMobile) {
-      setSelectedSong(null);
-    } else {
-      if (!selectedSong && lyricsFiles.length > 0) {
-        setSelectedSong(lyricsFiles[0]);
-      }
-    }
-  }, [isMobile, lyricsFiles]);
-
-
-  useEffect(() => {
-    const handleSongSelected = (event) => {
-      setSelectedSong(event.detail);
-    };
-
-    window.addEventListener('song-selected', handleSongSelected);
-    return () => {
-      window.removeEventListener('song-selected', handleSongSelected);
-    };
-  }, []);
+    // Cleanup listener on component unmount
+    return () => unsubscribe();
+  }, [isMobile]); // Re-run logic if we switch between mobile/desktop
 
   const handleFileSelect = (file) => {
     setSelectedSong(file);
+    // Dispatch a global event so the header (if it's in a sheet) can close itself
+    window.dispatchEvent(new CustomEvent('song-selected-mobile'));
   };
 
   const handleFileUpload = (event) => {
@@ -227,78 +187,90 @@ export default function LyricsManagerPage() {
   };
 
   if (isLoading) {
-    return <div className="p-4 text-center">Loading songs...</div>;
+    return (
+      <div className="flex flex-col h-screen">
+        <AppHeader songs={[]} onFileSelect={handleFileSelect} fileInputRef={fileInputRef} handleFileUpload={handleFileUpload} />
+        <div className="flex-1 flex items-center justify-center">
+            <div className="p-4 text-center">Loading songs...</div>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] bg-background">
-      {!isMobile && (
-        <aside className="w-1/3 min-w-[250px] max-w-[350px] border-r">
-          <SidebarContent {...sidebarProps} />
-        </aside>
-      )}
+    <div className="flex flex-col h-screen">
+      <AppHeader songs={lyricsFiles} onFileSelect={handleFileSelect} fileInputRef={fileInputRef} handleFileUpload={handleFileUpload} />
+      <div className="flex flex-1 pt-14 h-[calc(100vh-3.5rem)] bg-background">
+          {!isMobile && (
+            <aside className="w-1/3 min-w-[250px] max-w-[350px] border-r">
+              <SidebarContent {...sidebarProps} />
+            </aside>
+          )}
 
-      <main className="flex-1 flex flex-col p-4">
-        {selectedSong ? (
-          <Card className="flex-1 flex flex-col">
-            <CardHeader>
-              <CardTitle className="truncate">{selectedSong.name}</CardTitle>
-            </CardHeader>
-            <CardContent className="flex-1 overflow-y-auto">
-              <pre className="whitespace-pre-wrap font-body text-base leading-relaxed">
-                {selectedSong.content}
-              </pre>
-            </CardContent>
-            <CardFooter className="bg-muted/50 p-3 mt-auto border-t">
-               <div className="flex items-center gap-2">
-                  <Button variant="outline" onClick={() => handleShowInNewPage(selectedSong.id)}>
-                    <Eye className="mr-2 h-4 w-4" /> Show
-                  </Button>
-                  
-                  <Dialog open={!!editingFile && editingFile.id === selectedSong.id} onOpenChange={(isOpen) => !isOpen && closeEditDialog()}>
-                    <DialogTrigger asChild>
-                       <Button variant="outline" onClick={() => openEditDialog(selectedSong)}>
-                          <Edit className="mr-2 h-4 w-4" /> Edit
+          <main className="flex-1 flex flex-col p-4">
+            {selectedSong ? (
+              <Card className="flex-1 flex flex-col">
+                <CardHeader>
+                  <CardTitle className="truncate">{selectedSong.name}</CardTitle>
+                </CardHeader>
+                <CardContent className="flex-1 overflow-y-auto">
+                  <pre className="whitespace-pre-wrap font-body text-base leading-relaxed">
+                    {selectedSong.content}
+                  </pre>
+                </CardContent>
+                <CardFooter className="bg-muted/50 p-3 mt-auto border-t">
+                   <div className="flex items-center gap-2">
+                      <Button variant="outline" onClick={() => handleShowInNewPage(selectedSong.id)}>
+                        <Eye className="mr-2 h-4 w-4" /> Show
+                      </Button>
+                      
+                      <Dialog open={!!editingFile && editingFile.id === selectedSong.id} onOpenChange={(isOpen) => !isOpen && closeEditDialog()}>
+                        <DialogTrigger asChild>
+                           <Button variant="outline" onClick={() => openEditDialog(selectedSong)}>
+                              <Edit className="mr-2 h-4 w-4" /> Edit
+                           </Button>
+                        </DialogTrigger>
+                         <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Edit {editingFile?.name}</DialogTitle>
+                          </DialogHeader>
+                          <Textarea
+                            value={editingContent}
+                            onChange={(e) => setEditingContent(e.target.value)}
+                            rows={15}
+                            className="my-4"
+                          />
+                          <DialogFooter>
+                            <DialogClose asChild>
+                              <Button variant="outline">Cancel</Button>
+                            </DialogClose>
+                            <Button onClick={handleEditSave}>Save</Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+
+                      <Button variant="destructive" onClick={() => handleDelete(selectedSong.id)}>
+                        <Trash2 className="mr-2 h-4 w-4" /> Delete
+                      </Button>
+                    </div>
+                </CardFooter>
+              </Card>
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-center text-muted-foreground">
+                <div className="flex flex-col items-center gap-4">
+                    <Music className="h-16 w-16 text-muted-foreground/50" />
+                    <h2 className="text-xl font-medium">No songs found</h2>
+                    <p>Add a new song to get started.</p>
+                     {isMobile && (
+                       <Button onClick={() => fileInputRef.current?.click()} className="mt-4">
+                          <PlusCircle className="mr-2 h-4 w-4" /> Add Song
                        </Button>
-                    </DialogTrigger>
-                     <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Edit {editingFile?.name}</DialogTitle>
-                      </DialogHeader>
-                      <Textarea
-                        value={editingContent}
-                        onChange={(e) => setEditingContent(e.target.value)}
-                        rows={15}
-                        className="my-4"
-                      />
-                      <DialogFooter>
-                        <DialogClose asChild>
-                          <Button variant="outline">Cancel</Button>
-                        </DialogClose>
-                        <Button onClick={handleEditSave}>Save</Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-
-                  <Button variant="destructive" onClick={() => handleDelete(selectedSong.id)}>
-                    <Trash2 className="mr-2 h-4 w-4" /> Delete
-                  </Button>
+                    )}
                 </div>
-            </CardFooter>
-          </Card>
-        ) : (
-          <div className="flex-1 flex items-center justify-center text-center text-muted-foreground">
-            <div className="flex flex-col items-center gap-4">
-                <Music className="h-16 w-16 text-muted-foreground/50" />
-                <h2 className="text-xl font-medium">Select a song to view</h2>
-                <p>Or add a new song to get started.</p>
-                 {isMobile && (
-                  <p className="text-sm mt-4">Click the menu icon above to open the song list.</p>
-                )}
-            </div>
-          </div>
-        )}
-      </main>
-    </div>
-  );
+              </div>
+            )}
+          </main>
+        </div>
+      </div>
+    );
 }
