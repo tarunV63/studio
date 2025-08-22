@@ -96,24 +96,12 @@ export default function LyricsManagerPage() {
         const querySnapshot = await getDocs(q);
         const updatedSongs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
         setLyricsFiles(updatedSongs);
-        if (!isMobile && updatedSongs.length > 0) {
-            // If a song is already selected and it's still in the list, keep it.
-            // Otherwise, select the first song.
-            const currentSongStillExists = selectedSong && updatedSongs.some(s => s.id === selectedSong.id);
-            if (!currentSongStillExists) {
-               setSelectedSong(updatedSongs[0]);
-            }
-        } else if (isMobile) {
-            setSelectedSong(null); // On mobile, don't auto-select.
-        } else {
-            setSelectedSong(null); // No songs, so nothing to select.
-        }
       } catch (error) {
         console.error("Error fetching songs:", error);
         toast({
           variant: "destructive",
           title: "Connection Error",
-          description: "Could not connect to Firestore. Please check your Firebase project settings and security rules.",
+          description: "Could not connect to Firestore. Please check your Firebase project settings, API status, and security rules.",
         });
       } finally {
         setIsLoading(false);
@@ -124,14 +112,21 @@ export default function LyricsManagerPage() {
   }, [refetchTrigger, toast]);
 
   useEffect(() => {
-    if (isMobile) {
-        setSelectedSong(null);
-    } else {
-        if (lyricsFiles.length > 0 && !selectedSong) {
+    if (lyricsFiles.length > 0 && !selectedSong) {
+        if (!isMobile) {
             setSelectedSong(lyricsFiles[0]);
         }
     }
-  }, [isMobile, lyricsFiles, selectedSong]);
+     // If a selected song is deleted, select the first one if not on mobile
+    if (selectedSong && !lyricsFiles.some(s => s.id === selectedSong.id)) {
+        if (!isMobile && lyricsFiles.length > 0) {
+            setSelectedSong(lyricsFiles[0]);
+        } else {
+            setSelectedSong(null);
+        }
+    }
+
+  }, [lyricsFiles, isMobile, selectedSong]);
 
 
   const handleFileSelect = (file) => {
@@ -220,9 +215,16 @@ export default function LyricsManagerPage() {
         const updatedSelectedSong = lyricsFiles.find(s => s.id === selectedSong.id);
         if (updatedSelectedSong) {
             setSelectedSong(updatedSelectedSong);
+        } else {
+             // If the selected song is no longer in the list (e.g., deleted)
+            if (!isMobile && lyricsFiles.length > 0) {
+                setSelectedSong(lyricsFiles[0]);
+            } else {
+                setSelectedSong(null);
+            }
         }
     }
-  }, [lyricsFiles, selectedSong]);
+  }, [lyricsFiles, selectedSong, isMobile]);
 
   if (isLoading) {
     return (
@@ -312,5 +314,3 @@ export default function LyricsManagerPage() {
       </div>
     );
 }
-
-    
