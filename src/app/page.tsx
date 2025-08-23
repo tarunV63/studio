@@ -59,7 +59,7 @@ export function SidebarContent({ onFileSelect, handleAddSong, searchTerm, setSea
           />
         </div>
       </div>
-      <nav className="flex flex-col p-4 pt-0 space-y-1 overflow-y-auto">
+      <nav className="flex flex-col p-4 pt-0 space-y-2 overflow-y-auto">
         {filteredSongs.length > 0 ? (
           filteredSongs.map((song) => (
             <Button
@@ -378,5 +378,3 @@ export default function LyricsManagerPage() {
       </div>
     );
 }
-
-    
