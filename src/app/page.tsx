@@ -181,11 +181,6 @@ export default function LyricsManagerPage() {
 
   const songsCollectionRef = collection(firestore, 'songs');
   
-  useEffect(() => {
-    setIsSheetOpen(isMobile);
-  }, [isMobile]);
-
-
   const fetchSongs = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -206,7 +201,7 @@ export default function LyricsManagerPage() {
     } finally {
         setIsLoading(false);
     }
-  }, [isMobile, selectedSong, toast]);
+  }, [isMobile, toast]);
 
   useEffect(() => {
     fetchSongs();
