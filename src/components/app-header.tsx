@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Menu, MoreVertical, Music2 } from 'lucide-react';
@@ -7,7 +8,7 @@ import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle } from '@/co
 import { SidebarContent } from '@/app/page';
 import { useState, useEffect } from 'react';
 
-export function AppHeader({ songs, onFileSelect, fileInputRef, handleFileUpload }) {
+export function AppHeader({ songs, onFileSelect, onAddSong }) {
   const isMobile = useIsMobile();
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -35,8 +36,7 @@ export function AppHeader({ songs, onFileSelect, fileInputRef, handleFileUpload 
 
   const sidebarProps = {
     onFileSelect,
-    fileInputRef,
-    handleFileUpload,
+    handleAddSong: onAddSong,
     searchTerm,
     setSearchTerm,
     filteredSongs,
@@ -73,3 +73,5 @@ export function AppHeader({ songs, onFileSelect, fileInputRef, handleFileUpload 
     </header>
   );
 }
+
+    

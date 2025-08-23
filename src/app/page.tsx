@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
@@ -11,24 +12,40 @@ import { Input } from '@/components/ui/input';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { AppHeader } from '@/components/app-header';
 import { useToast } from '@/hooks/use-toast';
-import { firestore } from '@/lib/firebase';
-import { collection, getDocs, addDoc, deleteDoc, doc, updateDoc, query, orderBy } from 'firebase/firestore';
+import { Label } from '@/components/ui/label';
 
-export function SidebarContent({ onFileSelect, fileInputRef, handleFileUpload, searchTerm, setSearchTerm, filteredSongs, selectedSong }) {
+// A mock song structure for local state management
+const createSong = (name, content) => ({
+  id: Date.now() + Math.random(), // Simple unique ID
+  name,
+  content,
+});
+
+const initialSongs = [
+  createSong('Bohemian Rhapsody', `Is this the real life?
+Is this just fantasy?
+Caught in a landslide,
+No escape from reality.`),
+  createSong('Stairway to Heaven', `There's a lady who's sure
+All that glitters is gold
+And she's buying a stairway to heaven.`),
+  createSong('Hotel California', `On a dark desert highway, cool wind in my hair
+Warm smell of colitas, rising up through the air
+Up ahead in the distance, I saw a shimmering light
+My head grew heavy and my sight grew dim
+I had to stop for the night.`)
+].sort((a, b) => a.name.localeCompare(b.name));
+
+
+export function SidebarContent({ onFileSelect, handleAddSong, searchTerm, setSearchTerm, filteredSongs, selectedSong }) {
   return (
     <div className="flex flex-col h-full bg-background">
       <div className="p-4">
-        <Button onClick={() => fileInputRef.current?.click()} className="w-full">
-          <PlusCircle className="mr-2 h-4 w-4" /> Add Song
-        </Button>
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileUpload}
-          className="hidden"
-          accept=".txt"
-          multiple
-        />
+         <AddSongDialog onAddSong={handleAddSong}>
+            <Button className="w-full">
+              <PlusCircle className="mr-2 h-4 w-4" /> Add Song
+            </Button>
+        </AddSongDialog>
       </div>
       <div className="p-4 pt-0">
         <div className="relative">
@@ -62,47 +79,112 @@ export function SidebarContent({ onFileSelect, fileInputRef, handleFileUpload, s
   );
 }
 
+function AddSongDialog({ onAddSong, children }) {
+  const [isAddManuallyOpen, setIsAddManuallyOpen] = useState(false);
+  const [isPrimaryOpen, setIsPrimaryOpen] = useState(false);
+  const [manualTitle, setManualTitle] = useState('');
+  const [manualContent, setManualContent] = useState('');
+  const fileInputRef = useRef(null);
+
+  const handleFileUpload = async (event) => {
+    const files = event.target.files;
+    if (!files) return;
+
+    for (const file of Array.from(files)) {
+      if (file.type === 'text/plain') {
+        const content = await file.text();
+        const fileName = file.name.replace('.txt', '');
+        onAddSong(fileName, content);
+      }
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+    setIsPrimaryOpen(false);
+  };
+  
+  const handleManualSave = () => {
+    if (manualTitle.trim() && manualContent.trim()) {
+      onAddSong(manualTitle, manualContent);
+      setManualTitle('');
+      setManualContent('');
+      setIsAddManuallyOpen(false);
+      setIsPrimaryOpen(false);
+    }
+  }
+
+  return (
+    <Dialog open={isPrimaryOpen} onOpenChange={setIsPrimaryOpen}>
+      <DialogTrigger asChild>
+        {children}
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add a new song</DialogTitle>
+        </DialogHeader>
+        <div className="grid grid-cols-2 gap-4 py-4">
+          <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+            Upload .txt File
+          </Button>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+            className="hidden"
+            accept=".txt"
+            multiple
+          />
+           <Dialog open={isAddManuallyOpen} onOpenChange={setIsAddManuallyOpen}>
+                <DialogTrigger asChild>
+                    <Button>Write Lyrics Manually</Button>
+                </DialogTrigger>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Add Lyrics Manually</DialogTitle>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                           <Label htmlFor="song-title">Title</Label>
+                           <Input id="song-title" value={manualTitle} onChange={(e) => setManualTitle(e.target.value)} placeholder="Enter song title" />
+                        </div>
+                         <div className="grid gap-2">
+                           <Label htmlFor="song-lyrics">Lyrics</Label>
+                           <Textarea id="song-lyrics" value={manualContent} onChange={(e) => setManualContent(e.target.value)} placeholder="Enter song lyrics" rows={10} />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                      <DialogClose asChild>
+                        <Button variant="outline">Cancel</Button>
+                      </DialogClose>
+                      <Button onClick={handleManualSave}>Save Song</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+
 export default function LyricsManagerPage() {
   const [lyricsFiles, setLyricsFiles] = useState([]);
   const [selectedSong, setSelectedSong] = useState(null);
   const [editingFile, setEditingFile] = useState(null);
   const [editingContent, setEditingContent] = useState('');
+  const [editingTitle, setEditingTitle] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
   const isMobile = useIsMobile();
   const router = useRouter();
-  const fileInputRef = useRef(null);
   const { toast } = useToast();
-
-  const fetchSongs = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      if (!firestore) {
-        throw new Error("Firestore is not initialized.");
-      }
-      const songsCollection = collection(firestore, 'songs');
-      const q = query(songsCollection, orderBy('name'));
-      const songSnapshot = await getDocs(q);
-      const songsList = songSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setLyricsFiles(songsList);
-    } catch (err) {
-      console.error("Error fetching songs:", err);
-      setError("Could not load songs. Please check your connection and Firestore setup.");
-      toast({
-        variant: "destructive",
-        title: "Loading Error",
-        description: "Could not load songs. Please try again later.",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [toast]);
   
   useEffect(() => {
-    fetchSongs();
-  }, [fetchSongs]);
+    // Simulate loading data on mount
+    setIsLoading(true);
+    setLyricsFiles(initialSongs);
+    setIsLoading(false);
+  }, []);
 
   useEffect(() => {
     if (!selectedSong && !isMobile && lyricsFiles.length > 0) {
@@ -121,40 +203,19 @@ export default function LyricsManagerPage() {
     }
   };
 
-  const handleFileUpload = async (event) => {
-    const files = event.target.files;
-    if (!files) return;
-
-    for (const file of Array.from(files)) {
-      if (file.type === 'text/plain') {
-        const content = await file.text();
-        const fileName = file.name.replace('.txt', '');
-
-        const existingSong = lyricsFiles.find(f => f.name === fileName);
-        if (!existingSong) {
-          try {
-            const songsCollection = collection(firestore, 'songs');
-            const newDocRef = await addDoc(songsCollection, { name: fileName, content: content });
-            const newFile = { id: newDocRef.id, name: fileName, content: content };
-            setLyricsFiles(prevFiles => [...prevFiles, newFile].sort((a, b) => a.name.localeCompare(b.name)));
-          } catch (err) {
-             toast({
-                variant: "destructive",
-                title: "Upload Error",
-                description: `Failed to upload song "${fileName}".`,
-            });
-          }
-        } else {
-          toast({
-            variant: "destructive",
-            title: "Song Exists",
-            description: `A song named "${fileName}" already exists.`,
-          });
-        }
-      }
-    }
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+  const handleAddSong = (name, content) => {
+    const existingSong = lyricsFiles.find(f => f.name.toLowerCase() === name.toLowerCase());
+    if (!existingSong) {
+      const newFile = createSong(name, content);
+      const updatedSongs = [...lyricsFiles, newFile].sort((a, b) => a.name.localeCompare(b.name));
+      setLyricsFiles(updatedSongs);
+      toast({ title: "Success", description: `Song "${name}" added.` });
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Song Exists",
+        description: `A song named "${name}" already exists.`,
+      });
     }
   };
 
@@ -163,63 +224,53 @@ export default function LyricsManagerPage() {
   );
 
   const handleDelete = async (songId) => {
-    try {
-      const songDoc = doc(firestore, 'songs', songId);
-      await deleteDoc(songDoc);
-      setLyricsFiles(prevFiles => prevFiles.filter(file => file.id !== songId));
-      toast({ title: "Success", description: "Song deleted successfully." });
-    } catch (err) {
-       toast({
-          variant: "destructive",
-          title: "Delete Error",
-          description: "Failed to delete the song.",
-       });
-    }
+    setLyricsFiles(prevFiles => prevFiles.filter(file => file.id !== songId));
+    toast({ title: "Success", description: "Song deleted successfully." });
   };
 
   const handleEditSave = async () => {
     if (!editingFile) return;
-    try {
-      const songDoc = doc(firestore, 'songs', editingFile.id);
-      await updateDoc(songDoc, { content: editingContent });
-      setLyricsFiles(prevFiles =>
-        prevFiles.map(file =>
-          file.id === editingFile.id ? { ...file, content: editingContent } : file
-        )
-      );
+    
+     const updatedFiles = lyricsFiles.map(file =>
+        file.id === editingFile.id ? { ...file, name: editingTitle, content: editingContent } : file
+      ).sort((a, b) => a.name.localeCompare(b.name));
+
+      setLyricsFiles(updatedFiles);
+
       if (selectedSong?.id === editingFile.id) {
-        setSelectedSong(prevSong => ({ ...prevSong, content: editingContent }));
+        setSelectedSong(prevSong => ({ ...prevSong, name: editingTitle, content: editingContent }));
       }
+      
       setEditingFile(null);
       setEditingContent('');
+      setEditingTitle('');
+
       toast({ title: "Success", description: "Song updated successfully." });
-    } catch (err) {
-       toast({
-          variant: "destructive",
-          title: "Update Error",
-          description: "Failed to save changes.",
-       });
-    }
   };
   
    const handleShowInNewPage = (songId) => {
-    router.push(`/lyrics/view?id=${songId}`);
+    const song = lyricsFiles.find(s => s.id === songId);
+    if (song) {
+        localStorage.setItem('temp_song_content', song.content);
+        router.push(`/lyrics/view?id=${songId}`);
+    }
   };
 
   const openEditDialog = (file) => {
     setEditingFile(file);
+    setEditingTitle(file.name);
     setEditingContent(file.content);
   };
 
   const closeEditDialog = () => {
     setEditingFile(null);
     setEditingContent('');
+    setEditingTitle('');
   };
   
   const sidebarProps = {
     onFileSelect: handleFileSelect,
-    fileInputRef,
-    handleFileUpload,
+    handleAddSong: handleAddSong,
     searchTerm,
     setSearchTerm,
     filteredSongs,
@@ -234,17 +285,9 @@ export default function LyricsManagerPage() {
     );
   }
 
-  if (error) {
-     return (
-        <div className="flex h-screen items-center justify-center text-center text-destructive">
-            <p>{error}</p>
-        </div>
-    );
-  }
-
   return (
     <div className="flex flex-col h-screen">
-      <AppHeader onFileSelect={handleFileSelect} fileInputRef={fileInputRef} handleFileUpload={handleFileUpload} songs={lyricsFiles} />
+      <AppHeader onFileSelect={handleFileSelect} onAddSong={handleAddSong} songs={lyricsFiles} />
       <div className="flex flex-1 pt-14 h-[calc(100vh-3.5rem)] bg-background">
           {!isMobile && (
             <aside className="w-1/3 min-w-[250px] max-w-[350px] border-r">
@@ -279,17 +322,31 @@ export default function LyricsManagerPage() {
                           <DialogHeader>
                             <DialogTitle>Edit {editingFile?.name}</DialogTitle>
                           </DialogHeader>
-                          <Textarea
-                            value={editingContent}
-                            onChange={(e) => setEditingContent(e.target.value)}
-                            rows={15}
-                            className="my-4"
-                          />
+                          <div className="grid gap-4 py-4">
+                            <div className="grid gap-2">
+                                <Label htmlFor="edit-song-title">Title</Label>
+                                <Input 
+                                  id="edit-song-title"
+                                  value={editingTitle}
+                                  onChange={(e) => setEditingTitle(e.target.value)}
+                                  placeholder="Enter song title"
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="edit-song-content">Lyrics</Label>
+                                <Textarea
+                                  id="edit-song-content"
+                                  value={editingContent}
+                                  onChange={(e) => setEditingContent(e.target.value)}
+                                  rows={15}
+                                />
+                            </div>
+                          </div>
                           <DialogFooter>
                             <DialogClose asChild>
                               <Button variant="outline">Cancel</Button>
                             </DialogClose>
-                            <Button onClick={handleEditSave}>Save</Button>
+                            <Button onClick={handleEditSave}>Save Changes</Button>
                           </DialogFooter>
                         </DialogContent>
                       </Dialog>
@@ -307,9 +364,11 @@ export default function LyricsManagerPage() {
                     <h2 className="text-xl font-medium">{lyricsFiles.length > 0 ? "Select a song" : "No songs found"}</h2>
                     <p>{lyricsFiles.length > 0 ? "Choose a song from the list to see its lyrics." : "Add a new song to get started."}</p>
                      {isMobile && !lyricsFiles.length && (
-                       <Button onClick={() => fileInputRef.current?.click()} className="mt-4">
-                          <PlusCircle className="mr-2 h-4 w-4" /> Add Song
-                       </Button>
+                       <AddSongDialog onAddSong={handleAddSong}>
+                           <Button className="mt-4">
+                              <PlusCircle className="mr-2 h-4 w-4" /> Add Song
+                           </Button>
+                       </AddSongDialog>
                     )}
                 </div>
               </div>
@@ -319,3 +378,5 @@ export default function LyricsManagerPage() {
       </div>
     );
 }
+
+    
