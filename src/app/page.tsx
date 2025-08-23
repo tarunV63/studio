@@ -175,7 +175,7 @@ export default function LyricsManagerPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const isMobile = useIsMobile();
-  const [isSheetOpen, setIsSheetOpen] = useState(isMobile);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -206,6 +206,13 @@ export default function LyricsManagerPage() {
   useEffect(() => {
     fetchSongs();
   }, [fetchSongs]);
+
+  useEffect(() => {
+    if (isMobile) {
+      setIsSheetOpen(true);
+    }
+  }, []);
+
 
   useEffect(() => {
     if (!selectedSong && !isMobile && lyricsFiles.length > 0) {
@@ -423,5 +430,7 @@ export default function LyricsManagerPage() {
       </div>
     );
 }
+
+    
 
     
