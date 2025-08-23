@@ -294,11 +294,22 @@ export default function LyricsManagerPage() {
     try {
         const songDoc = doc(firestore, 'songs', editingFile.id);
         await updateDoc(songDoc, { name: editingTitle, content: editingContent });
+        
+        const updatedSong = { ...editingFile, name: editingTitle, content: editingContent };
+
+        const updatedFiles = lyricsFiles.map(file =>
+            file.id === editingFile.id ? updatedSong : file
+        ).sort((a, b) => a.name.localeCompare(b.name));
+        
+        setLyricsFiles(updatedFiles);
+        setSelectedSong(updatedSong);
+
         toast({ title: "Success", description: "Song updated successfully." });
+        
         setEditingFile(null);
         setEditingContent('');
         setEditingTitle('');
-        fetchSongs(); // Refresh list
+
     } catch (error) {
         console.error("Error updating song: ", error);
         toast({
