@@ -6,19 +6,17 @@ import { Button } from '@/components/ui/button';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { SidebarContent } from '@/app/page';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 
 export function AppHeader({ songs, onFileSelect, onAddSong }) {
   const isMobile = useIsMobile();
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const initialLoad = useRef(true);
 
-  // Automatically open the sheet on mobile view on initial load only.
+  // Set initial sheet state only once when isMobile value is first determined.
   useEffect(() => {
-    if (isMobile && initialLoad.current) {
+    if (isMobile) {
       setIsSheetOpen(true);
-      initialLoad.current = false;
     }
   }, [isMobile]);
 
@@ -51,7 +49,7 @@ export function AppHeader({ songs, onFileSelect, onAddSong }) {
         {isMobile ? (
           <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-10 w-10 hover:bg-primary-foreground/10">
+              <Button variant="ghost" size="icon" className="h-10 w-10 hover:bg-primary-foreground/10" onClick={() => setIsSheetOpen(true)}>
                 <Menu className="h-6 w-6" />
                 <span className="sr-only">Open Song List</span>
               </Button>
