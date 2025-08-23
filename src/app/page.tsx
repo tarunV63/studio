@@ -90,13 +90,18 @@ function AddSongDialog({ onAddSong, children }) {
     const files = event.target.files;
     if (!files) return;
 
+    const newSongs = [];
     for (const file of Array.from(files)) {
       if (file.type === 'text/plain') {
         const content = await file.text();
         const fileName = file.name.replace('.txt', '');
-        onAddSong(fileName, content);
+        newSongs.push({name: fileName, content});
       }
     }
+    if(newSongs.length > 0) {
+       onAddSong(newSongs);
+    }
+    
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -105,7 +110,7 @@ function AddSongDialog({ onAddSong, children }) {
   
   const handleManualSave = () => {
     if (manualTitle.trim() && manualContent.trim()) {
-      onAddSong(manualTitle, manualContent);
+      onAddSong([{ name: manualTitle, content: manualContent }]);
       setManualTitle('');
       setManualContent('');
       setIsAddManuallyOpen(false);
@@ -191,9 +196,16 @@ export default function LyricsManagerPage() {
     setIsLoading(false);
   }, []);
 
+  const prevLyricsFilesRef = useRef();
   useEffect(() => {
-    localStorage.setItem('lyricsFiles', JSON.stringify(lyricsFiles));
-  }, [lyricsFiles]);
+    if (prevLyricsFilesRef.current !== undefined && prevLyricsFilesRef.current.length < lyricsFiles.length) {
+       toast({ title: "Success", description: "Song(s) added successfully." });
+    } else if (prevLyricsFilesRef.current !== undefined && prevLyricsFilesRef.current.length > lyricsFiles.length) {
+       toast({ title: "Success", description: "Song deleted successfully." });
+    }
+     localStorage.setItem('lyricsFiles', JSON.stringify(lyricsFiles));
+     prevLyricsFilesRef.current = lyricsFiles;
+  }, [lyricsFiles, toast]);
 
 
   useEffect(() => {
@@ -213,22 +225,28 @@ export default function LyricsManagerPage() {
     }
   };
 
-  const handleAddSong = (name, content) => {
-    const newFile = createSong(name, content);
-    
+  const handleAddSong = (songs) => {
     setLyricsFiles(prevFiles => {
-      const existingSong = prevFiles.find(f => f.name.toLowerCase() === name.toLowerCase());
-      if (!existingSong) {
-        toast({ title: "Success", description: `Song "${name}" added.` });
-        return [...prevFiles, newFile].sort((a, b) => a.name.localeCompare(b.name));
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Song Exists",
-          description: `A song named "${name}" already exists.`,
+        const newFiles = [];
+        const existingNames = new Set(prevFiles.map(f => f.name.toLowerCase()));
+        
+        songs.forEach(song => {
+            if (!existingNames.has(song.name.toLowerCase())) {
+                newFiles.push(createSong(song.name, song.content));
+                existingNames.add(song.name.toLowerCase());
+            } else {
+                 toast({
+                    variant: "destructive",
+                    title: "Song Exists",
+                    description: `A song named "${song.name}" already exists.`,
+                });
+            }
         });
+
+        if (newFiles.length > 0) {
+          return [...prevFiles, ...newFiles].sort((a, b) => a.name.localeCompare(b.name));
+        }
         return prevFiles;
-      }
     });
   };
 
@@ -238,7 +256,6 @@ export default function LyricsManagerPage() {
 
   const handleDelete = async (songId) => {
     setLyricsFiles(prevFiles => prevFiles.filter(file => file.id !== songId));
-    toast({ title: "Success", description: "Song deleted successfully." });
   };
 
   const handleEditSave = async () => {
