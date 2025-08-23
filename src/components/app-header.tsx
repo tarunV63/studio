@@ -8,27 +8,9 @@ import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle } from '@/co
 import { SidebarContent } from '@/app/page';
 import { useState, useEffect } from 'react';
 
-export function AppHeader({ songs, onFileSelect, onAddSong }) {
+export function AppHeader({ songs, onFileSelect, onAddSong, isSheetOpen, setIsSheetOpen }) {
   const isMobile = useIsMobile();
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-
-  // Set initial sheet state only once when isMobile value is first determined.
-  useEffect(() => {
-    if (isMobile) {
-      setIsSheetOpen(true);
-    }
-  }, [isMobile]);
-
-
-  // Close sheet when a song is selected on mobile
-  useEffect(() => {
-    const handleClose = () => setIsSheetOpen(false);
-    window.addEventListener('song-selected-mobile', handleClose);
-    return () => {
-      window.removeEventListener('song-selected-mobile', handleClose);
-    };
-  }, []);
 
   const filteredSongs = songs.filter(file =>
     file.name.toLowerCase().includes(searchTerm.toLowerCase())

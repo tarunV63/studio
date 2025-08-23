@@ -175,10 +175,16 @@ export default function LyricsManagerPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const isMobile = useIsMobile();
+  const [isSheetOpen, setIsSheetOpen] = useState(isMobile);
   const router = useRouter();
   const { toast } = useToast();
 
   const songsCollectionRef = collection(firestore, 'songs');
+  
+  useEffect(() => {
+    setIsSheetOpen(isMobile);
+  }, [isMobile]);
+
 
   const fetchSongs = useCallback(async () => {
     setIsLoading(true);
@@ -219,7 +225,7 @@ export default function LyricsManagerPage() {
   const handleFileSelect = (file) => {
     setSelectedSong(file);
     if (isMobile) {
-      window.dispatchEvent(new CustomEvent('song-selected-mobile'));
+      setIsSheetOpen(false);
     }
   };
 
@@ -331,7 +337,7 @@ export default function LyricsManagerPage() {
 
   return (
     <div className="flex flex-col h-screen">
-      <AppHeader onFileSelect={handleFileSelect} onAddSong={handleAddSong} songs={lyricsFiles} />
+      <AppHeader onFileSelect={handleFileSelect} onAddSong={handleAddSong} songs={lyricsFiles} isSheetOpen={isSheetOpen} setIsSheetOpen={setIsSheetOpen} />
       <div className="flex flex-1 pt-14 h-[calc(100vh-3.5rem)] bg-background">
           {!isMobile && (
             <aside className="w-1/3 min-w-[250px] max-w-[350px] border-r">
