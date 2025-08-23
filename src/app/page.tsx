@@ -52,7 +52,7 @@ export function SidebarContent({ onFileSelect, handleAddSong, searchTerm, setSea
             <Button
               key={song.id}
               variant={selectedSong?.id === song.id ? "secondary" : "ghost"}
-              className="justify-start truncate"
+              className="justify-start h-auto text-wrap"
               onClick={() => onFileSelect(song)}
             >
               {song.name}
@@ -139,7 +139,7 @@ function AddSongDialog({ onAddSong, children }) {
                 </DialogTrigger>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Add Lyrics Manually</DialogTitle>
+                        <DialogTitle className="break-words">Add Lyrics Manually</DialogTitle>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid gap-2">
@@ -208,8 +208,8 @@ export default function LyricsManagerPage() {
   }, [fetchSongs]);
 
   useEffect(() => {
-    if (isMobile) {
-        setIsSheetOpen(true);
+    if (isMobile === true) {
+      setIsSheetOpen(true);
     }
   }, [isMobile]);
 
@@ -350,7 +350,7 @@ export default function LyricsManagerPage() {
             {selectedSong ? (
               <Card className="flex-1 flex flex-col">
                 <CardHeader>
-                  <CardTitle className="truncate">{selectedSong.name}</CardTitle>
+                  <CardTitle className="break-words">{selectedSong.name}</CardTitle>
                 </CardHeader>
                 <CardContent className="flex-1 overflow-y-auto">
                   <pre className="whitespace-pre-wrap font-body text-base leading-relaxed">
@@ -371,7 +371,7 @@ export default function LyricsManagerPage() {
                         </DialogTrigger>
                          <DialogContent>
                           <DialogHeader>
-                            <DialogTitle>Edit {editingFile?.name}</DialogTitle>
+                            <DialogTitle className="break-words">Edit {editingFile?.name}</DialogTitle>
                           </DialogHeader>
                           <div className="grid gap-4 py-4">
                             <div className="grid gap-2">
