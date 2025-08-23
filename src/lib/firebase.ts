@@ -1,7 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 
-// Your web app's Firebase configuration
+// Your web app's Firebase configuration - DO NOT EDIT
 const firebaseConfig = {
   "projectId": "lryics-locker",
   "appId": "1:630263628513:web:9d54cfca9e8ace7c65ada0",

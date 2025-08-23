@@ -2,26 +2,44 @@
 'use client';
 
 import { useState, useEffect, Suspense, useCallback } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Loader2 } from 'lucide-react';
+import { doc, getDoc } from 'firebase/firestore';
+import { firestore } from '@/lib/firebase';
 
 function LyricsView() {
   const [songContent, setSongContent] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const songId = searchParams.get('id');
+
+  const fetchSong = useCallback(async () => {
+    if (!songId) {
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const songDoc = doc(firestore, 'songs', songId);
+      const docSnap = await getDoc(songDoc);
+      if (docSnap.exists()) {
+        setSongContent(docSnap.data().content);
+      } else {
+        console.log("No such document!");
+      }
+    } catch (error) {
+      console.error("Error fetching song:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [songId]);
 
   useEffect(() => {
-    // We'll use localStorage to pass the content to avoid complex state management for this simple case
-    const content = localStorage.getItem('temp_song_content');
-    if (content) {
-      setSongContent(content);
-    }
-    setIsLoading(false);
-    // Optional: Clean up localStorage after reading
-    // localStorage.removeItem('temp_song_content');
-  }, []);
+    fetchSong();
+  }, [fetchSong]);
 
 
   if (isLoading) {
@@ -44,7 +62,7 @@ function LyricsView() {
               {songContent}
             </pre>
           ) : (
-            <p className="text-muted-foreground">No lyrics to display.</p>
+            <p className="text-muted-foreground">Could not find the requested lyrics.</p>
           )}
         </CardContent>
       </Card>
@@ -60,5 +78,3 @@ export default function ViewLyricsPage() {
     </Suspense>
   )
 }
-
-    
