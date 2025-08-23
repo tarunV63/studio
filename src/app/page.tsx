@@ -200,7 +200,7 @@ export default function LyricsManagerPage() {
     } finally {
         setIsLoading(false);
     }
-  }, [isMobile]);
+  }, [isMobile, selectedSong, toast]);
 
   useEffect(() => {
     fetchSongs();
@@ -239,7 +239,7 @@ export default function LyricsManagerPage() {
                 continue;
             }
 
-            await addDoc(songsCollectionef, { name: song.name, content: song.content });
+            await addDoc(songsCollectionRef, { name: song.name, content: song.content });
             addedCount++;
         } catch (error) {
             console.error("Error adding song: ", error);
@@ -422,3 +422,5 @@ export default function LyricsManagerPage() {
       </div>
     );
 }
+
+    
