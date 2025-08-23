@@ -119,7 +119,7 @@ function AddSongDialog({ onAddSong, children }) {
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle className="break-words">Add a new song</DialogTitle>
+          <DialogTitle className="break-words text-left">Add a new song</DialogTitle>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-4 py-4">
           <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
@@ -139,7 +139,7 @@ function AddSongDialog({ onAddSong, children }) {
                 </DialogTrigger>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle className="break-words">Add Lyrics Manually</DialogTitle>
+                        <DialogTitle className="break-words text-left">Add Lyrics Manually</DialogTitle>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid gap-2">
@@ -180,7 +180,7 @@ export default function LyricsManagerPage() {
   const { toast } = useToast();
 
   const songsCollectionRef = collection(firestore, 'songs');
-  
+
   const fetchSongs = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -208,9 +208,15 @@ export default function LyricsManagerPage() {
   }, [fetchSongs]);
 
   useEffect(() => {
-    if (isMobile) {
-      setIsSheetOpen(true);
-    }
+      if (isMobile === undefined) return; 
+
+      if (isMobile) {
+          const isFirstLoad = sessionStorage.getItem('isFirstLoad') !== 'false';
+          if (isFirstLoad) {
+              setIsSheetOpen(true);
+              sessionStorage.setItem('isFirstLoad', 'false');
+          }
+      }
   }, [isMobile]);
 
   useEffect(() => {
@@ -371,7 +377,7 @@ export default function LyricsManagerPage() {
                         </DialogTrigger>
                          <DialogContent>
                           <DialogHeader>
-                            <DialogTitle className="break-words">Edit {editingFile?.name}</DialogTitle>
+                            <DialogTitle className="break-words text-left">Edit {editingFile?.name}</DialogTitle>
                           </DialogHeader>
                           <div className="grid gap-4 py-4">
                             <div className="grid gap-2">
@@ -429,3 +435,5 @@ export default function LyricsManagerPage() {
       </div>
     );
 }
+
+    
