@@ -52,7 +52,7 @@ export function SidebarContent({ onFileSelect, handleAddSong, searchTerm, setSea
             <Button
               key={song.id}
               variant={selectedSong?.id === song.id ? "secondary" : "ghost"}
-              className="justify-start h-auto text-wrap"
+              className="justify-start h-auto text-wrap text-left"
               onClick={() => onFileSelect(song)}
             >
               {song.name}
@@ -119,7 +119,7 @@ function AddSongDialog({ onAddSong, children }) {
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add a new song</DialogTitle>
+          <DialogTitle className="break-words">Add a new song</DialogTitle>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-4 py-4">
           <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
@@ -208,7 +208,7 @@ export default function LyricsManagerPage() {
   }, [fetchSongs]);
 
   useEffect(() => {
-    if (isMobile === true) {
+    if (isMobile) {
       setIsSheetOpen(true);
     }
   }, [isMobile]);
@@ -350,7 +350,7 @@ export default function LyricsManagerPage() {
             {selectedSong ? (
               <Card className="flex-1 flex flex-col">
                 <CardHeader>
-                  <CardTitle className="break-words">{selectedSong.name}</CardTitle>
+                  <CardTitle className="break-words text-left">{selectedSong.name}</CardTitle>
                 </CardHeader>
                 <CardContent className="flex-1 overflow-y-auto">
                   <pre className="whitespace-pre-wrap font-body text-base leading-relaxed">
