@@ -188,7 +188,16 @@ export default function LyricsManagerPage() {
         const data = await getDocs(q);
         const songs = data.docs.map(doc => createSong(doc.id, doc.data().name, doc.data().content));
         setLyricsFiles(songs);
-        if (!selectedSong && songs.length > 0 && !isMobile) {
+
+        const lastSelectedId = sessionStorage.getItem('selectedSongId');
+        if (lastSelectedId) {
+            const songToSelect = songs.find(s => s.id === lastSelectedId);
+            if (songToSelect) {
+                setSelectedSong(songToSelect);
+            } else if (songs.length > 0 && !isMobile) {
+                setSelectedSong(songs[0]);
+            }
+        } else if (!isMobile && songs.length > 0) {
             setSelectedSong(songs[0]);
         }
     } catch (error) {
@@ -208,29 +217,24 @@ export default function LyricsManagerPage() {
   }, [fetchSongs]);
 
   useEffect(() => {
-      if (isMobile === undefined) return; 
-
-      if (isMobile) {
-          const isFirstLoad = sessionStorage.getItem('isFirstLoad') !== 'false';
-          if (isFirstLoad) {
-              setIsSheetOpen(true);
-              sessionStorage.setItem('isFirstLoad', 'false');
-          }
-      }
+    if (isMobile === undefined) return;
+    const isFirstLoad = sessionStorage.getItem('isFirstLoad') !== 'false';
+    if (isMobile && isFirstLoad) {
+        setIsSheetOpen(true);
+        sessionStorage.setItem('isFirstLoad', 'false');
+    }
   }, [isMobile]);
 
   useEffect(() => {
-    if (!selectedSong && !isMobile && lyricsFiles.length > 0) {
-      setSelectedSong(lyricsFiles[0]);
-    }
-     if (selectedSong && !lyricsFiles.find(s => s.id === selectedSong.id)) {
-        setSelectedSong(isMobile ? null : lyricsFiles[0] || null);
+    if (selectedSong && !lyricsFiles.find(s => s.id === selectedSong.id)) {
+       setSelectedSong(isMobile ? null : lyricsFiles[0] || null);
     }
   }, [lyricsFiles, isMobile, selectedSong]);
 
 
   const handleFileSelect = (file) => {
     setSelectedSong(file);
+    sessionStorage.setItem('selectedSongId', file.id);
     if (isMobile) {
       setIsSheetOpen(false);
     }
@@ -278,7 +282,19 @@ export default function LyricsManagerPage() {
         const songDoc = doc(firestore, 'songs', songId);
         await deleteDoc(songDoc);
         toast({ title: "Success", description: "Song deleted successfully." });
-        fetchSongs(); // Refresh list
+        
+        const newFiles = lyricsFiles.filter(s => s.id !== songId);
+        setLyricsFiles(newFiles);
+
+        if (selectedSong?.id === songId) {
+            setSelectedSong(isMobile ? null : newFiles[0] || null);
+             if(!isMobile && newFiles.length > 0) {
+                sessionStorage.setItem('selectedSongId', newFiles[0].id);
+            } else {
+                sessionStorage.removeItem('selectedSongId');
+            }
+        }
+        
     } catch (error) {
         console.error("Error deleting song: ", error);
         toast({
@@ -303,6 +319,7 @@ export default function LyricsManagerPage() {
         
         setLyricsFiles(updatedFiles);
         setSelectedSong(updatedSong);
+        sessionStorage.setItem('selectedSongId', updatedSong.id);
 
         toast({ title: "Success", description: "Song updated successfully." });
         
@@ -446,5 +463,3 @@ export default function LyricsManagerPage() {
       </div>
     );
 }
-
-    
