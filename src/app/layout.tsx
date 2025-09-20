@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
+import { AuthProvider } from '@/contexts/auth-context';
 
 export const metadata: Metadata = {
   title: 'DroidStart',
@@ -28,10 +29,12 @@ export default function RootLayout({
         <meta name="theme-color" content="#3F51B5" />
       </head>
       <body className="font-body antialiased bg-background">
-        <div className="relative flex min-h-screen w-full flex-col">
-          {children}
-          <Toaster />
-        </div>
+        <AuthProvider>
+            <div className="relative flex min-h-screen w-full flex-col">
+            {children}
+            <Toaster />
+            </div>
+        </AuthProvider>
       </body>
     </html>
   );

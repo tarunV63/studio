@@ -1,16 +1,33 @@
 
 'use client';
 
-import { Menu, MoreVertical, Music2 } from 'lucide-react';
+import { Menu, MoreVertical, Music2, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { SidebarContent } from '@/app/page';
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/auth-context';
+import { auth } from '@/lib/firebase';
+import { signOut } from 'firebase/auth';
+import { useRouter } from 'next/navigation';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 export function AppHeader({ songs, onFileSelect, onAddSong, isSheetOpen, setIsSheetOpen }) {
   const isMobile = useIsMobile();
   const [searchTerm, setSearchTerm] = useState('');
+  const { user } = useAuth();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    router.push('/login');
+  };
 
   const filteredSongs = songs.filter(file =>
     file.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -48,10 +65,22 @@ export function AppHeader({ songs, onFileSelect, onAddSong, isSheetOpen, setIsSh
         )}
         <h1 className="text-xl font-bold font-headline">Lyrics</h1>
       </div>
-      <Button variant="ghost" size="icon" className="h-10 w-10 hover:bg-primary-foreground/10">
-        <MoreVertical className="h-6 w-6" />
-        <span className="sr-only">More options</span>
-      </Button>
+      {user && (
+         <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-10 w-10 hover:bg-primary-foreground/10">
+                    <MoreVertical className="h-6 w-6" />
+                    <span className="sr-only">More options</span>
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleLogout}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Logout</span>
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
+      )}
     </header>
   );
 }

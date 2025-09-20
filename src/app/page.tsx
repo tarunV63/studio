@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 import { firestore } from '@/lib/firebase';
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
+import { useAuth, AuthProvider } from '@/contexts/auth-context';
 
 
 // A mock song structure for local state management
@@ -25,15 +26,18 @@ const createSong = (id, name, content) => ({
 });
 
 export function SidebarContent({ onFileSelect, handleAddSong, searchTerm, setSearchTerm, filteredSongs, selectedSong }) {
+    const { user } = useAuth();
   return (
     <div className="flex flex-col h-full bg-background">
-      <div className="p-4">
-         <AddSongDialog onAddSong={handleAddSong}>
-            <Button className="w-full">
-              <PlusCircle className="mr-2 h-4 w-4" /> Add Song
-            </Button>
-        </AddSongDialog>
-      </div>
+      {user && (
+        <div className="p-4">
+            <AddSongDialog onAddSong={handleAddSong}>
+                <Button className="w-full">
+                <PlusCircle className="mr-2 h-4 w-4" /> Add Song
+                </Button>
+            </AddSongDialog>
+        </div>
+      )}
       <div className="p-4 pt-0">
         <div className="relative">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -52,7 +56,7 @@ export function SidebarContent({ onFileSelect, handleAddSong, searchTerm, setSea
             <Button
               key={song.id}
               variant={selectedSong?.id === song.id ? "secondary" : "ghost"}
-              className="justify-start h-auto text-wrap text-left"
+              className="justify-start h-auto text-left text-wrap"
               onClick={() => onFileSelect(song)}
             >
               {song.name}
@@ -166,7 +170,7 @@ function AddSongDialog({ onAddSong, children }) {
 }
 
 
-export default function LyricsManagerPage() {
+function LyricsManager() {
   const [lyricsFiles, setLyricsFiles] = useState([]);
   const [selectedSong, setSelectedSong] = useState(null);
   const [editingFile, setEditingFile] = useState(null);
@@ -178,6 +182,7 @@ export default function LyricsManagerPage() {
   const isMobile = useIsMobile();
   const router = useRouter();
   const { toast } = useToast();
+  const { user, loading } = useAuth();
 
   const songsCollectionRef = collection(firestore, 'songs');
 
@@ -215,6 +220,13 @@ export default function LyricsManagerPage() {
   useEffect(() => {
     fetchSongs();
   }, [fetchSongs]);
+
+  useEffect(() => {
+    if (loading) return;
+    if (!user) {
+        router.push('/login');
+    }
+  }, [user, loading, router]);
 
   useEffect(() => {
     if (isMobile === undefined) return;
@@ -287,9 +299,10 @@ export default function LyricsManagerPage() {
         setLyricsFiles(newFiles);
 
         if (selectedSong?.id === songId) {
-            setSelectedSong(isMobile ? null : newFiles[0] || null);
-             if(!isMobile && newFiles.length > 0) {
-                sessionStorage.setItem('selectedSongId', newFiles[0].id);
+            const newSelectedSong = isMobile ? null : (newFiles[0] || null);
+            setSelectedSong(newSelectedSong);
+            if(newSelectedSong) {
+                sessionStorage.setItem('selectedSongId', newSelectedSong.id);
             } else {
                 sessionStorage.removeItem('selectedSongId');
             }
@@ -362,7 +375,7 @@ export default function LyricsManagerPage() {
     selectedSong
   };
 
-  if (isLoading) {
+  if (isLoading || loading) {
     return (
         <div className="flex h-screen items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin" />
@@ -397,48 +410,52 @@ export default function LyricsManagerPage() {
                         <Eye className="mr-2 h-4 w-4" /> Show
                       </Button>
                       
-                      <Dialog open={!!editingFile && editingFile.id === selectedSong.id} onOpenChange={(isOpen) => !isOpen && closeEditDialog()}>
-                        <DialogTrigger asChild>
-                           <Button variant="outline" onClick={() => openEditDialog(selectedSong)}>
-                              <Edit className="mr-2 h-4 w-4" /> Edit
-                           </Button>
-                        </DialogTrigger>
-                         <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle className="break-words text-left">Edit {editingFile?.name}</DialogTitle>
-                          </DialogHeader>
-                          <div className="grid gap-4 py-4">
-                            <div className="grid gap-2">
-                                <Label htmlFor="edit-song-title">Title</Label>
-                                <Input 
-                                  id="edit-song-title"
-                                  value={editingTitle}
-                                  onChange={(e) => setEditingTitle(e.target.value)}
-                                  placeholder="Enter song title"
-                                />
+                      {user && (
+                        <>
+                        <Dialog open={!!editingFile && editingFile.id === selectedSong.id} onOpenChange={(isOpen) => !isOpen && closeEditDialog()}>
+                            <DialogTrigger asChild>
+                            <Button variant="outline" onClick={() => openEditDialog(selectedSong)}>
+                                <Edit className="mr-2 h-4 w-4" /> Edit
+                            </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle className="break-words text-left">Edit {editingFile?.name}</DialogTitle>
+                            </DialogHeader>
+                            <div className="grid gap-4 py-4">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="edit-song-title">Title</Label>
+                                    <Input 
+                                    id="edit-song-title"
+                                    value={editingTitle}
+                                    onChange={(e) => setEditingTitle(e.target.value)}
+                                    placeholder="Enter song title"
+                                    />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="edit-song-content">Lyrics</Label>
+                                    <Textarea
+                                    id="edit-song-content"
+                                    value={editingContent}
+                                    onChange={(e) => setEditingContent(e.target.value)}
+                                    rows={15}
+                                    />
+                                </div>
                             </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="edit-song-content">Lyrics</Label>
-                                <Textarea
-                                  id="edit-song-content"
-                                  value={editingContent}
-                                  onChange={(e) => setEditingContent(e.target.value)}
-                                  rows={15}
-                                />
-                            </div>
-                          </div>
-                          <DialogFooter>
-                            <DialogClose asChild>
-                              <Button variant="outline">Cancel</Button>
-                            </DialogClose>
-                            <Button onClick={handleEditSave}>Save Changes</Button>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
+                            <DialogFooter>
+                                <DialogClose asChild>
+                                <Button variant="outline">Cancel</Button>
+                                </DialogClose>
+                                <Button onClick={handleEditSave}>Save Changes</Button>
+                            </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
 
-                      <Button variant="destructive" onClick={() => handleDelete(selectedSong.id)}>
-                        <Trash2 className="mr-2 h-4 w-4" /> Delete
-                      </Button>
+                        <Button variant="destructive" onClick={() => handleDelete(selectedSong.id)}>
+                            <Trash2 className="mr-2 h-4 w-4" /> Delete
+                        </Button>
+                        </>
+                      )}
                     </div>
                 </CardFooter>
               </Card>
@@ -448,7 +465,7 @@ export default function LyricsManagerPage() {
                     <Music className="h-16 w-16 text-muted-foreground/50" />
                     <h2 className="text-xl font-medium">{lyricsFiles.length > 0 ? "Select a song" : "No songs found"}</h2>
                     <p>{lyricsFiles.length > 0 ? "Choose a song from the list to see its lyrics." : "Add a new song to get started."}</p>
-                     {isMobile && !lyricsFiles.length && (
+                     {isMobile && !lyricsFiles.length && user && (
                        <AddSongDialog onAddSong={handleAddSong}>
                            <Button className="mt-4">
                               <PlusCircle className="mr-2 h-4 w-4" /> Add Song
@@ -462,4 +479,12 @@ export default function LyricsManagerPage() {
         </div>
       </div>
     );
+}
+
+export default function LyricsManagerPage() {
+    return (
+        <AuthProvider>
+            <LyricsManager />
+        </AuthProvider>
+    )
 }
