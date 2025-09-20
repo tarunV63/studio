@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Textarea } from '@/components/ui/textarea';
 import { useRouter } from 'next/navigation';
 import { Trash2, Edit, Eye, Music, PlusCircle, Search, Loader2 } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { AppHeader } from '@/components/app-header';
@@ -124,6 +124,9 @@ function AddSongDialog({ onAddSong, children }) {
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="break-words text-left">Add a new song</DialogTitle>
+           <DialogDescription>
+            Choose how you want to add your new song lyrics.
+          </DialogDescription>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-4 py-4">
           <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
@@ -144,6 +147,9 @@ function AddSongDialog({ onAddSong, children }) {
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle className="break-words text-left">Add Lyrics Manually</DialogTitle>
+                        <DialogDescription>
+                            Enter the title and lyrics for your new song below.
+                        </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid gap-2">
@@ -421,6 +427,9 @@ function LyricsManager() {
                             <DialogContent>
                             <DialogHeader>
                                 <DialogTitle className="break-words text-left">Edit {editingFile?.name}</DialogTitle>
+                                <DialogDescription>
+                                    Make changes to your song's title or lyrics here. Click save when you're done.
+                                </DialogDescription>
                             </DialogHeader>
                             <div className="grid gap-4 py-4">
                                 <div className="grid gap-2">
