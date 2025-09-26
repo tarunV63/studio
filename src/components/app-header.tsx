@@ -1,21 +1,23 @@
 
 'use client';
 
-import { Menu, MoreVertical, Music2, LogOut } from 'lucide-react';
+import { Menu, MoreVertical, Music2, LogOut, User as UserIcon, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { SidebarContent } from '@/app/page';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { auth } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 
 export function AppHeader({ songs, onFileSelect, onAddSong, isSheetOpen, setIsSheetOpen }) {
@@ -65,7 +67,7 @@ export function AppHeader({ songs, onFileSelect, onAddSong, isSheetOpen, setIsSh
         )}
         <h1 className="text-xl font-bold font-headline">Lyrics</h1>
       </div>
-      {user && (
+      
          <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-10 w-10 hover:bg-primary-foreground/10">
@@ -74,13 +76,28 @@ export function AppHeader({ songs, onFileSelect, onAddSong, isSheetOpen, setIsSh
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={handleLogout}>
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Logout</span>
-                </DropdownMenuItem>
+                {user ? (
+                  <>
+                    <DropdownMenuItem disabled>
+                      <UserIcon className="mr-2 h-4 w-4" />
+                      <span>{user.email}</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleLogout}>
+                        <LogOut className="mr-2 h-4 w-4" />
+                        <span>Logout</span>
+                    </DropdownMenuItem>
+                  </>
+                ) : (
+                  <DropdownMenuItem asChild>
+                    <Link href="/login">
+                      <LogIn className="mr-2 h-4 w-4" />
+                      <span>Admin Login</span>
+                    </Link>
+                  </DropdownMenuItem>
+                )}
             </DropdownMenuContent>
         </DropdownMenu>
-      )}
     </header>
   );
 }

@@ -228,13 +228,6 @@ function LyricsManager() {
   }, [fetchSongs]);
 
   useEffect(() => {
-    if (loading) return;
-    if (!user) {
-        router.push('/login');
-    }
-  }, [user, loading, router]);
-
-  useEffect(() => {
     if (isMobile === undefined) return;
     const isFirstLoad = sessionStorage.getItem('isFirstLoad') !== 'false';
     if (isMobile && isFirstLoad) {
@@ -259,6 +252,10 @@ function LyricsManager() {
   };
 
   const handleAddSong = async (songs) => {
+    if (!user) {
+        toast({ variant: "destructive", title: "Authentication Error", description: "You must be logged in to add songs." });
+        return;
+    }
     let addedCount = 0;
     for (const song of songs) {
         try {
@@ -296,6 +293,10 @@ function LyricsManager() {
   );
 
   const handleDelete = async (songId) => {
+    if (!user) {
+        toast({ variant: "destructive", title: "Authentication Error", description: "You must be logged in to delete songs." });
+        return;
+    }
     try {
         const songDoc = doc(firestore, 'songs', songId);
         await deleteDoc(songDoc);
@@ -325,7 +326,10 @@ function LyricsManager() {
   };
 
   const handleEditSave = async () => {
-    if (!editingFile) return;
+    if (!editingFile || !user) {
+        toast({ variant: "destructive", title: "Authentication Error", description: "You must be logged in to edit songs." });
+        return;
+    };
     try {
         const songDoc = doc(firestore, 'songs', editingFile.id);
         await updateDoc(songDoc, { name: editingTitle, content: editingContent });
@@ -481,6 +485,11 @@ function LyricsManager() {
                            </Button>
                        </AddSongDialog>
                     )}
+                     {!user && lyricsFiles.length === 0 && (
+                        <Button asChild>
+                            <Link href="/login">Login to Add Songs</Link>
+                        </Button>
+                     )}
                 </div>
               </div>
             )}
