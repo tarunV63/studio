@@ -15,7 +15,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 import { firestore } from '@/lib/firebase';
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
-import { useAuth, AuthProvider } from '@/contexts/auth-context';
+import { useAuth } from '@/contexts/auth-context';
+import Link from 'next/link';
 
 
 // A mock song structure for local state management
@@ -139,6 +140,8 @@ function AddSongDialog({ onAddSong, children }) {
             className="hidden"
             accept=".txt"
             multiple
+            spellCheck="false"
+            autoComplete="off"
           />
            <Dialog open={isAddManuallyOpen} onOpenChange={setIsAddManuallyOpen}>
                 <DialogTrigger asChild>
@@ -229,9 +232,11 @@ function LyricsManager() {
 
   useEffect(() => {
     if (isMobile === undefined) return;
-    const isFirstLoad = sessionStorage.getItem('isFirstLoad') !== 'false';
-    if (isMobile && isFirstLoad) {
-        setIsSheetOpen(true);
+    
+    if (sessionStorage.getItem('isFirstLoad') === null) {
+        if (isMobile) {
+            setIsSheetOpen(true);
+        }
         sessionStorage.setItem('isFirstLoad', 'false');
     }
   }, [isMobile]);
@@ -464,9 +469,29 @@ function LyricsManager() {
                             </DialogContent>
                         </Dialog>
 
-                        <Button variant="destructive" onClick={() => handleDelete(selectedSong.id)}>
-                            <Trash2 className="mr-2 h-4 w-4" /> Delete
-                        </Button>
+                        <Dialog>
+                            <DialogTrigger asChild>
+                                <Button variant="destructive">
+                                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Are you sure?</DialogTitle>
+                                    <DialogDescription>
+                                        This action cannot be undone. This will permanently delete the song "{selectedSong.name}".
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <DialogFooter>
+                                    <DialogClose asChild>
+                                        <Button variant="outline">Cancel</Button>
+                                    </DialogClose>
+                                    <DialogClose asChild>
+                                        <Button variant="destructive" onClick={() => handleDelete(selectedSong.id)}>Delete</Button>
+                                    </DialogClose>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
                         </>
                       )}
                     </div>
@@ -501,8 +526,6 @@ function LyricsManager() {
 
 export default function LyricsManagerPage() {
     return (
-        <AuthProvider>
-            <LyricsManager />
-        </AuthProvider>
+        <LyricsManager />
     )
 }
