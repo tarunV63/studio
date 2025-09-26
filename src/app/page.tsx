@@ -510,7 +510,7 @@ function LyricsManager() {
                            </Button>
                        </AddSongDialog>
                     )}
-                     {!user && lyricsFiles.length === 0 && (
+                     {!user && (
                         <Button asChild>
                             <Link href="/login">Login to Add Songs</Link>
                         </Button>
